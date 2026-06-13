@@ -1,0 +1,13 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Cap top -->
+  <polygon points="60,20 105,45 60,70 15,45" fill="#FFFFFF"></polygon>
+
+  <!-- Cap base -->
+  <rect x="40" y="70" width="40" height="10" rx="2" fill="#FFFFFF"></rect>
+
+  <!-- Tassel -->
+  <line x1="85" y1="45" x2="85" y2="65" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"></line>
+  <circle cx="85" cy="68" r="3" fill="#FFFFFF"></circle>
+
+</svg>

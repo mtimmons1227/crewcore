@@ -1,0 +1,12 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Upward Growth Arrow -->
+  <path d="M30 80 L55 55 L70 70 L95 40" stroke="#FFFFFF" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+
+  <!-- Arrow Head -->
+  <path d="M85 40 L95 40 L95 50" stroke="#FFFFFF" stroke-width="6" fill="none" stroke-linecap="round"></path>
+
+  <!-- Base Line -->
+  <line x1="25" y1="85" x2="95" y2="85" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"></line>
+
+</svg>

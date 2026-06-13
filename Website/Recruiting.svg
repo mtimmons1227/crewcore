@@ -1,0 +1,15 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Center person -->
+  <circle cx="60" cy="45" r="12" fill="#FFFFFF"></circle>
+  <path d="M35 85 Q60 65 85 85 Z" fill="#FFFFFF"></path>
+
+  <!-- Left person -->
+  <circle cx="30" cy="50" r="8" fill="#FFFFFF"></circle>
+  <path d="M15 80 Q30 65 45 80 Z" fill="#FFFFFF"></path>
+
+  <!-- Right person -->
+  <circle cx="90" cy="50" r="8" fill="#FFFFFF"></circle>
+  <path d="M75 80 Q90 65 105 80 Z" fill="#FFFFFF"></path>
+
+</svg>
