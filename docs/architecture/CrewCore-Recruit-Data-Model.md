@@ -40,7 +40,7 @@
 - `email` text
 - `phone` text
 - `home_location` text
-- `auth_user_id` text unique
+- `auth_user_id` uuid unique
 - `created_at` timestamptz not null default `now()`
 
 ### membership
