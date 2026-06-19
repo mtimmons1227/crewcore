@@ -3,7 +3,7 @@
 **Module:** CrewCore Recruit
 **Workflow stage:** Step 3 of 9 (Data Model / Schema)
 **Status:** Updated to Slice 1 live schema
-**Source of truth:** supabase/migrations/20260618212707_slice1_recruit_core_schema.sql, 20260618213000_add_chapter_slug.sql, 20260619053500_add_chapter_display_fields.sql
+**Source of truth:** supabase/migrations/20260618212707_slice1_recruit_core_schema.sql, 20260618213000_add_chapter_slug.sql, 20260619053500_add_chapter_display_fields.sql, 20260619121500_add_person_auth_user_id_and_recruiter_rls.sql
 **Last updated:** June 19, 2026
 
 > Live schema for Slice 1. Table and column names below are taken from the applied Supabase migrations.
@@ -46,6 +46,7 @@ ow()
 - email text
 - phone text
 - home_location text
+- uth_user_id text unique
 - created_at timestamptz not null default 
 ow()
 
@@ -79,6 +80,7 @@ ow()
 - Table names are lowercase singular: sport, ssociation, chapter, person, membership, lead.
 - chapter.slug is unique and serves as the public per-chapter URL key (for example: /DBOA).
 - chapter.branding is stored as jsonb; 	agline, hero_text, and ccent_color are used by the public recruiting page.
+- person.auth_user_id maps a Supabase auth account to a person record.
 - membership and lead both reference person, chapter, and optionally sport.
 
 ---
@@ -95,11 +97,22 @@ Slice 1 exposes a security-definer RPC for anonymous lead capture:
 
 - Public SELECT is allowed on sport, ssociation, and chapter.
 - person, membership, and lead are locked down by default with no SELECT policy in Slice 1.
-- Recruiter read policies are planned to ride on staff authentication in the Command Center.
+- Recruiter read policies are added in the new migration so logged-in recruiters and chapter admins can read leads for chapters they run.
 
 ---
 
-## 4. Relationships
+## 4. Auth-mapped people and recruiter access
+
+- person.auth_user_id associates a Supabase login account with a person identity in the system.
+- public.current_person_id() resolves the current logged-in user to a person.id via uth_user_id.
+- public.current_user_chapter_ids() returns the chapters where the current auth user has membership role ecruiter or chapter_admin.
+- Lead reads are gated to chapters returned by public.current_user_chapter_ids().
+- Person reads are allowed for the logged-in user's own person row, plus for persons attached to leads in those chapters.
+- Membership reads are allowed for the current user's own membership row so the app can display account role.
+
+---
+
+## 5. Relationships
 
 - chapter.state_association_id links a local chapter to its state association.
 - person is the portable lead identity.
@@ -107,6 +120,6 @@ Slice 1 exposes a security-definer RPC for anonymous lead capture:
 - lead captures inbound interest before an active chapter membership is created.
 - sport is a shared reference table used by both membership and lead.
 
-## 5. Slice 1 alignment
+## 6. Slice 1 alignment
 
-This document now reflects the Slice 1 production schema as deployed in the Supabase migration chain. It is intentionally kept aligned with the live database rather than earlier conceptual models.
+This document now reflects the deployed Slice 1 Supabase schema, including the auth-user mapping and recruiter/chapter-admin read rules.
