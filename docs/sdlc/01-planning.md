@@ -39,4 +39,5 @@ Identify the scope and purpose of the software before any code: what we're build
 - [`../../CLAUDE.md`](../../CLAUDE.md) — product mission, principles, modules, build priority, conventions.
 - [`../product/CrewCore Recruit Brief.md`](../product/CrewCore%20Recruit%20Brief.md) — the Recruit module brief.
 - [`../product/CrewCore-Recruit-Blueprint.md`](../product/CrewCore-Recruit-Blueprint.md), [`../product/CrewCore-demo.pdf`](../product/CrewCore-demo.pdf).
+- [`../strategy/competitive-brief.md`](../strategy/competitive-brief.md) — competitive landscape, positioning, monetization options.
 - See the [artifact index](../artifacts/README.md).
