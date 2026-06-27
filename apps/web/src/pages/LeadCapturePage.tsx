@@ -14,6 +14,19 @@ type SportRow = {
   name: string;
 };
 
+type WorkflowStep = {
+  id: string;
+  name: string;
+  description: string | null;
+  sort_order: number;
+  step_type: string;
+  cadence: string | null;
+  required: boolean;
+  completion_mode: string;
+  config: Record<string, unknown> | null;
+  prerequisite_step_id: string | null;
+};
+
 type LeadFormState = {
   fullName: string;
   phone: string;
@@ -26,11 +39,14 @@ const BASKETBALL_SPORT_NAME = 'Basketball';
 export default function LeadCapturePage() {
   const [chapter, setChapter] = useState<ChapterRow | null>(null);
   const [sport, setSport] = useState<SportRow | null>(null);
+  const [steps, setSteps] = useState<WorkflowStep[]>([]);
   const [form, setForm] = useState<LeadFormState>({ fullName: '', phone: '', email: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [registrationLoading, setRegistrationLoading] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -67,9 +83,31 @@ export default function LeadCapturePage() {
         return;
       }
 
+      const workflowResult = await supabase
+        .from('workflow_step')
+        .select(
+          'id,name,sort_order,step_type,cadence,required,completion_mode,config,prerequisite_step_id',
+        )
+        .eq('chapter_id', chapterData.id)
+        .eq('sport_id', sportData.id)
+        .order('sort_order', { ascending: true });
+
+      const workflowData = workflowResult.data as WorkflowStep[] | null;
+      const workflowError = workflowResult.error;
+
+      if (workflowError) {
+        setError('Unable to load the registration preview.');
+      }
+
       setChapter(chapterData);
       setSport(sportData);
+      setSteps(workflowData ?? []);
       setLoading(false);
+    }
+
+    const storedToken = window.localStorage.getItem('recruit_registration_token');
+    if (storedToken) {
+      setToken(storedToken);
     }
 
     loadData();
@@ -113,6 +151,29 @@ export default function LeadCapturePage() {
     setSaving(false);
   };
 
+  const handleStartRegistration = async () => {
+    if (!sport || !chapter || !form.email.trim()) return;
+    setRegistrationLoading(true);
+    setError(null);
+
+    const { data, error: rpcError } = await supabase.rpc('start_registration', {
+      p_email: form.email.trim(),
+      p_chapter_id: chapter.id,
+      p_sport_id: sport.id,
+    });
+
+    if (rpcError || !data) {
+      setError('Unable to start registration right now. Please try again.');
+      setRegistrationLoading(false);
+      return;
+    }
+
+    const registrationToken = data as string;
+    window.localStorage.setItem('recruit_registration_token', registrationToken);
+    setToken(registrationToken);
+    window.location.href = `/r/${registrationToken}`;
+  };
+
   return (
     <div className="hero" style={accentStyle}>
       <div className="hero-badge">DBOA Recruiting</div>
@@ -129,11 +190,35 @@ export default function LeadCapturePage() {
           <p>{error}</p>
         </section>
       ) : submitted ? (
-        <section className="card success-card">
-          <h2>Thank you, {form.fullName.split(' ')[0] ?? 'there'}!</h2>
-          <p>Your interest has been sent to DBOA. A recruiter will reach out soon with next steps.</p>
-          <p className="microcopy">If you want to review your info, refresh the page to submit another lead.</p>
-        </section>
+        <>
+          <section className="card success-card">
+            <h2>Thank you, {form.fullName.split(' ')[0] ?? 'there'}!</h2>
+            <p>Your interest has been sent to DBOA. A recruiter will reach out soon with next steps.</p>
+            <p className="microcopy">If you want to review your info, refresh the page to submit another lead.</p>
+          </section>
+
+          <section className="card">
+            <h3>What to expect next</h3>
+            <p className="microcopy">This is the self-serve recruit journey for DBOA Basketball.</p>
+            {steps.length > 0 ? (
+              <ol className="workflow-list">
+                {steps.map((step) => (
+                  <li key={step.id}>
+                    <strong>{step.name}</strong>
+                    {step.description ? <p>{step.description}</p> : null}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="microcopy">Loading the registration journey…</p>
+            )}
+            <div className="cta-row">
+              <button type="button" onClick={handleStartRegistration} disabled={registrationLoading}>
+                {registrationLoading ? 'Starting registration…' : 'Start my registration'}
+              </button>
+            </div>
+          </section>
+        </>
       ) : (
         <form className="card form-card" onSubmit={handleSubmit}>
           <div className="form-step">
