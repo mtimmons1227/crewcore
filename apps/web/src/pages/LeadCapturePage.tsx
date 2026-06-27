@@ -7,6 +7,7 @@ type ChapterRow = {
   tagline: string | null;
   hero_text: string | null;
   accent_color: string | null;
+  logo_url: string | null;
 };
 
 type SportRow = {
@@ -55,7 +56,7 @@ export default function LeadCapturePage() {
 
       const chapterResult = await supabase
         .from('chapter')
-        .select('id,name,tagline,hero_text,accent_color')
+        .select('id,name,tagline,hero_text,accent_color,logo_url')
         .eq('slug', DBOA_CHAPTER_SLUG)
         .single();
 
@@ -177,7 +178,18 @@ export default function LeadCapturePage() {
   return (
     <div className="hero" style={accentStyle}>
       <div className="hero-badge">DBOA Recruiting</div>
-      <h1>{chapter?.name ?? 'DBOA'} is looking for new officials</h1>
+      {chapter?.logo_url ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+          <img
+            src={chapter.logo_url}
+            alt={`${chapter.name} logo`}
+            style={{ height: '44px', maxHeight: '48px', width: 'auto', borderRadius: '8px', objectFit: 'contain', flexShrink: 0 }}
+          />
+          <h1 style={{ margin: 0 }}>{chapter.name} is looking for new officials</h1>
+        </div>
+      ) : (
+        <h1>{chapter?.name ?? 'DBOA'} is looking for new officials</h1>
+      )}
       <p>{chapter?.tagline ?? 'Start officiating basketball with a chapter-led onboarding path.'}</p>
       <div className="progress-pill">Step 1 of 1 — quick interest form</div>
 

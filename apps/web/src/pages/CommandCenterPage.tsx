@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { Card } from '../components/ui';
+
+type ChapterRow = {
+  id: string;
+  name: string;
+  logo_url: string | null;
+};
 
 type PipelineCycle = {
   id: string;
@@ -93,6 +100,18 @@ export default function CommandCenterPage() {
   const [expandedCycle, setExpandedCycle] = useState<string | null>(null);
   const [pipelineLoading, setPipelineLoading] = useState(false);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
+  const [chapter, setChapter] = useState<ChapterRow | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from('chapter')
+      .select('id,name,logo_url')
+      .eq('slug', 'DBOA')
+      .single()
+      .then(({ data }) => {
+        if (data) setChapter(data as ChapterRow);
+      });
+  }, []);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -286,12 +305,21 @@ export default function CommandCenterPage() {
     'md:grid-cols-[minmax(260px,1.8fr)_minmax(170px,1fr)_minmax(180px,1.2fr)_80px_120px]';
 
   const header = (
-    <header className="rounded-[24px] bg-slate-900 px-5 py-4 text-white shadow-soft sm:px-6">
+    <header className="rounded-panel bg-slate-900 px-5 py-4 text-white shadow-soft sm:px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">CrewCore</div>
-          <div className="text-xl font-semibold">CrewCore — DBOA</div>
-          <div className="mt-1 text-sm text-slate-400">Command Center for staff and chapter operations</div>
+        <div className="flex items-center gap-3">
+          {chapter?.logo_url ? (
+            <img
+              src={chapter.logo_url}
+              alt={`${chapter.name} logo`}
+              className="h-11 w-auto shrink-0 rounded-lg object-contain"
+            />
+          ) : null}
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">CrewCore</div>
+            <div className="text-xl font-semibold">CrewCore — DBOA</div>
+            <div className="mt-1 text-sm text-slate-400">Command Center for staff and chapter operations</div>
+          </div>
         </div>
         {session ? (
           <div className="flex flex-wrap items-center gap-3">
@@ -313,7 +341,7 @@ export default function CommandCenterPage() {
   );
 
   const authCard = (
-    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-soft">
+    <Card className="p-6">
       <div className="mb-5">
         <h2 className="text-xl font-semibold text-slate-900">{authMode === 'login' ? 'Sign in' : 'Create an account'}</h2>
         <p className="mt-1 text-sm text-slate-500">Enter your staff email and password to access the Command Center.</p>
@@ -368,11 +396,11 @@ export default function CommandCenterPage() {
           {authMode === 'login' ? 'Create an account' : 'Sign in'}
         </button>
       </p>
-    </section>
+    </Card>
   );
 
   const pipelineContent = (
-    <section className="mt-6 rounded-[28px] border border-slate-200 bg-white p-4 shadow-soft sm:p-6">
+    <Card className="mt-6 p-4 sm:p-6">
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-slate-900">Recruit roster</h2>
@@ -638,16 +666,16 @@ export default function CommandCenterPage() {
           </div>
         </>
       )}
-    </section>
+    </Card>
   );
 
   return (
     <div>
       {header}
       {initializing ? (
-        <section className="mt-6 rounded-[28px] border border-slate-200 bg-white p-6 shadow-soft">
+        <Card className="mt-6 p-6">
           <p className="text-sm text-slate-500">Checking auth status…</p>
-        </section>
+        </Card>
       ) : session ? (
         <>{pipelineContent}</>
       ) : (
