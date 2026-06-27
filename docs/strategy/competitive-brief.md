@@ -88,18 +88,30 @@ No existing software product owns this problem.
 
 ---
 
-## Monetization — decision pending
+## Monetization — DECIDED (pending board validation)
 
-The right model is undecided. Options:
+**Decision date:** 2026-06-27. Pending board validation before external commitment.
 
-1. **Per-chapter SaaS** — flat monthly/annual fee per chapter. Simple, predictable. Risk: price sensitivity; small chapters may balk.
-2. **Per-official seat** — scales with chapter size. Aligns with Arbiter's model (chapters already think in these terms). Risk: discourages growth if officials feel "counted."
-3. **Per-recruit outcome** — pay when a recruit becomes an active official. Aligns incentives with chapter outcomes. Risk: hard to attribute; complex billing.
-4. **Free for Recruit, paid for Exchange/Payouts** — freemium GTM to get chapters onto the platform, then monetize the higher-value modules. Risk: long path to revenue.
+### CrewCore software (standalone)
+- **$4 per official per year** — flat base, all officials in the chapter
+- **$3 founding-chapter rate** — DBOA only, locked in at launch
+- **+ 10% of new-official dues, first year only** — for each official in the calendar year they join; converts to the $4 flat base in year two
+- **Calendar-year cutoff: December 31** — roster count and "new recruit" determination both use a Dec-31 snapshot
 
-**Recommended starting point:** Per-chapter SaaS at a price that makes the chapter's recruiter feel it's cheaper than losing one game's missed assignment. Revisit when Exchange and Payouts are ready, at which point a bundled chapter-OS price makes sense.
+**Billing:** Annual invoice off the Dec-31 roster. The 10% applies per new official (their first year); subsequent years those officials fold into the $4 base count.
 
-**Decision needed before Slice 3.** See next actions in [SESSION-LOG.md](../SESSION-LOG.md).
+**Enforcement:** Invoice-based until Slice 3 (Stripe dues) puts CrewCore in the payment path, at which point the 10% becomes automatically attributable and collectible.
+
+### CrowdIQ / managed recruiting (separate)
+CrowdIQ is a **separate premium service**, not bundled with the $4 base:
+- Priced on ad spend + management fee + margin
+- Per-engagement, not per official
+- Pricing framework only — not finalized
+
+### Value framing
+RefTown costs ~$5/official to schedule (a cost center). CrewCore is a profit center: ~$150 in first-year dues per new official recruited makes $4 + 10%-year-one value-justified at the chapter level.
+
+**Claims ledger status:** Monetization model — decided (CrewCore standalone $4 + 10% year-one), pending board validation; CrowdIQ pricing — framework only. See the full claims ledger in [`docs/sdlc/08-future-releases.md`](../sdlc/08-future-releases.md).
 
 ---
 

@@ -13,6 +13,41 @@
 
 ---
 
+## 2026-06-27 — Pricing model finalized
+
+### What changed
+
+**CrewCore pricing model — decided (pending board validation)**
+
+- Settled the monetization structure that was flagged as open in the competitive brief and in the Slice 2 next-actions list.
+- Model: CrewCore software is priced standalone (not bundled with CrowdIQ or managed recruiting).
+  - **$4/official/year** flat base for all officials.
+  - **$3 founding-chapter rate** for DBOA, locked in at launch.
+  - **+ 10% of new-official dues, first year only.** Each official in the calendar year they join triggers the 10%; in year two they convert to the $4 base.
+  - **Calendar-year cutoff: December 31** — both roster count and new-recruit determination use a Dec-31 snapshot. Recruits after Dec 31 roll to the next year's 10% bucket.
+  - **Billing:** annual invoice off the Dec-31 snapshot.
+  - **Enforcement:** invoice-based until Slice 3 (Stripe dues) puts CrewCore in the payment path; after that, the 10% is automatically attributable and collectible.
+- **CrowdIQ / managed recruiting** is a separate premium service: ad spend + management + margin, not bundled. Pricing framework only — not finalized.
+- **Value framing:** RefTown ~$5/official (cost center); CrewCore ~$150 new dues per recruit (profit center) → $4 + 10%-year-one is value-justified.
+
+**Claims ledger updated:**
+- `docs/sdlc/08-future-releases.md` — added "Pricing model — DECIDED" section and a claims ledger table.
+- `docs/strategy/competitive-brief.md` — replaced "Monetization — decision pending" with the decided model.
+
+### What did not change
+
+- No code changes. No database changes.
+- Slice 3 scope, ADR-001, and the `workflow_step.authority` migration gap remain open (see prior entries).
+
+### Next actions (unchanged from Slice 2 wrap)
+
+1. **Board validation** — present pricing model; convert "pending board validation" to confirmed before external commitment.
+2. **Add migration for `workflow_step.authority`** before the next DB change.
+3. **Begin Slice 3 — Compliance** — compliance rollup, division-rep distribution view.
+4. **Finalize CrowdIQ pricing** once managed-recruiting scope is defined.
+
+---
+
 ## 2026-06-27 — Slice 2 wrap
 
 ### What shipped
