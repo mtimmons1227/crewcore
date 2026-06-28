@@ -59,6 +59,14 @@ CrewCore keeps its working docs under `docs/product`, `docs/architecture`, `docs
 
 ---
 
+## Sales & board materials
+
+- [`../sales/onepager.md`](../sales/onepager.md) — CrewCore Recruit one-pager (markdown source). PDF: [`../sales/CrewCore_DBOA_OnePager.pdf`](../sales/CrewCore_DBOA_OnePager.pdf).
+- [`../sales/founding-agreement.md`](../sales/founding-agreement.md) — DBOA founding-chapter agreement (markdown source). PDF: [`../sales/CrewCore_DBOA_FoundingAgreement.pdf`](../sales/CrewCore_DBOA_FoundingAgreement.pdf).
+- `../../supabase/migrations/20260627182800_add_workflow_step_authority.sql` — migration mirror for the `workflow_step.authority` column applied directly to the live DB during Slice 2. Pending: drop the SQL file here to keep the schema tracked.
+
+---
+
 ## Compiled deliverable
 - [`CrewCore_SDLC_Documentation.docx`](CrewCore_SDLC_Documentation.docx) — the full SDLC narrative (Planning → Future Releases) compiled into one polished Word document, generated from the Markdown in [`../sdlc/`](../sdlc/README.md). Regenerate when the Markdown changes.
 
