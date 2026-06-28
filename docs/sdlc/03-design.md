@@ -29,7 +29,7 @@ Turn the chosen approach into a concrete blueprint: system shape, data model, se
 CrewCore Recruit has **three surfaces over a single Supabase backend**:
 
 1. **`/` — Public lead capture page** (anonymous access): chapter-branded form; reads `chapter` by slug; submits through the `submit_lead` RPC; no direct table access.
-2. **`/r/:token` — Recruit status page** (token-gated, no login): recruits see their onboarding progress and can complete self-reportable steps; access gated by a `magic_link_token` record.
+2. **`/r/:token` — Recruit status page** (token-gated, no login): recruits see their onboarding progress and can complete self-reportable steps; access gated by the `access_token` UUID stored on `registration_cycle` (no separate token table).
 3. **`/command` — Recruiter Command Center** (authenticated staff): full pipeline view for recruiters and chapter admins; reads leads, registration cycles, and step completions scoped to their chapter(s) via RLS.
 
 **Where logic lives:** Business logic lives in the database via security-definer RPCs and RLS policies — not in the frontend. The frontend calls RPCs for writes that require privilege elevation; it reads directly from tables for data its RLS role already allows. This keeps the client thin and the security model auditable without reading application code.
@@ -48,6 +48,15 @@ Source of truth: `supabase/migrations/`. Column names are taken from applied mig
 **`association`**
 - `id` uuid PK
 - `name` text NOT NULL
+- `created_at` timestamptz
+
+**`season`**
+- `id` uuid PK
+- `name` text (e.g. "2026-27 Basketball Season")
+- `sport_id` uuid → `sport(id)`
+- `association_id` uuid → `association(id)`
+- `starts_on` date
+- `ends_on` date
 - `created_at` timestamptz
 
 #### Chapter tables (public SELECT on `chapter`)
@@ -99,44 +108,51 @@ Source of truth: `supabase/migrations/`. Column names are taken from applied mig
 
 #### Onboarding tables (Slice 2)
 
-**`workflow_step`** *(configurable per-chapter step definitions — applied directly to live DB; migration pending)*
+**`workflow_step`** *(configurable per-chapter step definitions; in migrations `slice2_registration_clearance_engine` + `add_workflow_step_authority`)*
 - `id` uuid PK
 - `chapter_id` uuid → `chapter(id)`
+- `sport_id` uuid → `sport(id)`
 - `name` text NOT NULL
-- `description` text
 - `sort_order` int NOT NULL
-- `completion_mode` text CHECK IN ('self_report','staff_verify')
-- `required` boolean
-- `applies_to` text[] (array of member types: 'new','returning','transfer')
-- `authority` text CHECK IN ('state','chapter') (state = THSBOA/NFHS mandate; chapter = DBOA config)
+- `step_type` text (payment | external_confirm | acknowledgment | assessment | credential | attendance)
+- `cadence` text DEFAULT 'annual' (annual | biennial)
+- `required` boolean DEFAULT true
+- `prerequisite_step_id` uuid → `workflow_step(id)`
+- `completion_mode` text DEFAULT 'self_report' CHECK IN ('self_report','staff_verify')
+- `config` jsonb DEFAULT '{}' (pricing, external_url, thresholds, applies_to rules, distributed_by, etc.)
+- `authority` text DEFAULT 'chapter' CHECK IN ('state','chapter')
 - `created_at` timestamptz
+
+Note: `description` and `applies_to` are not top-level columns in the live DB. Member-type applicability is encoded in `config` jsonb.
 
 **`registration_cycle`**
 - `id` uuid PK
-- `lead_id` uuid NOT NULL → `lead(id)` ON DELETE CASCADE
-- `chapter_id` uuid NOT NULL → `chapter(id)` ON DELETE CASCADE
-- `current_step` text
-- `started_at` timestamptz NOT NULL
-- `status` text DEFAULT 'in_progress' CHECK IN ('in_progress','completed','cancelled')
+- `person_id` uuid → `person(id)` ON DELETE CASCADE
+- `chapter_id` uuid → `chapter(id)` ON DELETE CASCADE
+- `sport_id` uuid → `sport(id)`
+- `season_id` uuid → `season(id)`
+- `member_type` text (new | returning | transfer)
+- `status` text DEFAULT 'in_progress'
+- `clearance_level` text DEFAULT 'none' (none | regular | playoff)
 - `cleared_at` timestamptz
+- `access_token` uuid DEFAULT gen_random_uuid() — the magic-link credential; sent to the recruit; no separate token table
 - `created_at` timestamptz
 
 **`step_completion`**
 - `id` uuid PK
-- `registration_cycle_id` uuid NOT NULL → `registration_cycle(id)` ON DELETE CASCADE
-- `step_name` text NOT NULL
-- `status` text DEFAULT 'pending' CHECK IN ('pending','complete','dropout')
-- `score` numeric (assessment score when applicable)
+- `cycle_id` uuid → `registration_cycle(id)` ON DELETE CASCADE
+- `workflow_step_id` uuid → `workflow_step(id)` (FK; not step_name text)
+- `status` text DEFAULT 'available' (available | complete | dropout | pending)
+- `due_at` timestamptz
 - `completed_at` timestamptz
+- `verified_by_person_id` uuid → `person(id)`
+- `evidence_url` text
+- `data` jsonb DEFAULT '{}' (step-specific payload; assessment score stored as `data->>'score'`)
+- `attempts` int DEFAULT 0
 - `created_at` timestamptz
+- `updated_at` timestamptz
 
-**`magic_link_token`**
-- `id` uuid PK
-- `registration_cycle_id` uuid NOT NULL → `registration_cycle(id)` ON DELETE CASCADE
-- `token` text NOT NULL UNIQUE
-- `expires_at` timestamptz NOT NULL DEFAULT now() + 7 days
-- `used_at` timestamptz
-- `created_at` timestamptz
+Note: there is no `magic_link_token` table. The recruit's token is `registration_cycle.access_token` (a uuid generated at cycle creation).
 
 ### `workflow_step` as the configurable unit
 
@@ -145,7 +161,7 @@ Source of truth: `supabase/migrations/`. Column names are taken from applied mig
 - **`sort_order`** determines display order only — it does not imply prerequisite or required status. These are independent attributes.
 - **`completion_mode`** (`self_report` vs. `staff_verify`) determines who can mark a step complete. `self_report` steps can be completed by the recruit on their `/r/:token` page. `staff_verify` steps require a logged-in staff member.
 - **`required`** determines whether the step blocks clearance. An optional step (e.g., an informational orientation) can be present without being required.
-- **`applies_to`** is an array of member types. A step present in the chapter config but not applicable to a recruit's member type is hidden from their checklist and excluded from their clearance calculation.
+- **Member-type applicability** is encoded in the step's `config` jsonb (e.g., `config.required_for: ["new", "second_year", "IV", "V"]`). A step not applicable to the recruit's member type is hidden from their checklist and excluded from their clearance calculation. `applies_to` is not a separate column in the live DB.
 - **`authority`** (`state` vs. `chapter`) distinguishes state-mandated steps from chapter-controlled steps. This is displayed to the chapter admin so they understand which steps they can modify.
 
 A new chapter (NTBOA, FWBOA) onboards by seeding a set of `workflow_step` rows scoped to their `chapter_id`. No new code is required.
@@ -172,7 +188,7 @@ The computed clearance level is stored in `registration_cycle.clearance_level` a
 
 1. **`public.submit_lead(p_chapter_id, p_full_name, p_phone, p_email, p_sport_id, p_source)`** — anonymous lead capture. Security definer; granted to `anon` and `authenticated`. Upserts `person` by email or phone, then inserts a `lead`. The public form never touches `person` or `lead` directly.
 
-2. **`public.start_registration(p_email, p_chapter_id, p_sport_id, p_season_id, p_member_type)`** — creates a `registration_cycle` for an existing `person` (looked up by email), scoped to the given chapter, sport, season, and member type. Returns the new cycle id and a fresh `magic_link_token`. Called by staff when a lead is ready to begin structured onboarding.
+2. **`public.start_registration(p_email, p_chapter_id, p_sport_id, p_season_id, p_member_type)`** — creates a `registration_cycle` for an existing `person` (looked up by email), scoped to the given chapter, sport, season, and member type. Returns the new cycle id and the cycle's `access_token` (a UUID generated at row creation). Called by staff when a lead is ready to begin structured onboarding.
 
 3. **`public.get_registration(p_token)`** — token-gated read for the recruit status page. Validates the magic-link token, returns the full registration cycle with its step list and current completion state. Accessible without auth (token is the credential); returns an error if the token is expired or not found.
 
@@ -180,28 +196,41 @@ The computed clearance level is stored in `registration_cycle.clearance_level` a
 
 **Internal functions:**
 
-- **`public.recompute_cycle_clearance(p_cycle_id)`** — recomputes `registration_cycle.clearance_level` from the current `step_completion` records for the cycle. Applies the tiered clearance algorithm (required-step check → "THSBOA state test" score → `none` / `regular` / `playoff`). Called by `complete_step` and by the trigger below.
-- **Trigger `tg_step_completion_cascade`** — fires `AFTER INSERT OR UPDATE` on `step_completion`; calls `recompute_cycle_clearance` so clearance is always consistent with completion records, even when records are inserted directly (e.g., via dashboard or migration scripts).
+- **`public.recompute_cycle_clearance(p_cycle_id)`** — recomputes `registration_cycle.clearance_level` from the current `step_completion` records for the cycle. Applies the tiered clearance algorithm (required-step check → "THSBOA state test" score → `none` / `regular` / `playoff`). Internal; callable by **service_role only**. Invoked by `complete_step` (which is SECURITY DEFINER and executes with elevated privilege) and by the trigger below.
+- **Trigger `tg_step_completion_cascade`** — fires `AFTER INSERT OR UPDATE` on `step_completion`; unlocks dependent steps and calls `recompute_cycle_clearance` so clearance is always consistent with completion records, even when records are inserted directly (e.g., via dashboard or migration scripts).
 
 **RLS policies (summary):**
 - `sport`, `association`, `chapter`: `FOR SELECT USING (true)` — public.
+- `season`, `workflow_step`: `FOR SELECT TO anon, authenticated USING (true)` — public reference data.
 - `lead`: `FOR SELECT TO authenticated USING (chapter_id IN (SELECT current_user_chapter_ids()))`.
-- `person`: `FOR SELECT TO authenticated USING (auth_user_id = auth.uid())` UNION `USING (id IN (SELECT person_id FROM lead WHERE chapter_id IN (SELECT current_user_chapter_ids())))`.
+- `person`: multiple policies — own-record (`auth_user_id = auth.uid()`), staff lead-read, staff cycle-person-read — all authenticated.
 - `membership`: `FOR SELECT TO authenticated USING (person_id = current_person_id())`.
-- `registration_cycle`, `step_completion`, `magic_link_token`: readable by authenticated staff via chapter scoping; `magic_link_token` readable by public (for the `/r/:token` page — the token is the credential).
+- `registration_cycle`, `step_completion`: `ALL TO authenticated` scoped to chapters via `current_user_chapter_ids()`.
+- No `magic_link_token` table or policy. The recruit's token is `registration_cycle.access_token`; RPCs (`get_registration`, `complete_step`) validate it as a parameter — no direct table read by anon.
 
 ### Tiered clearance algorithm
 
 Clearance level is computed by evaluating the recruit's `step_completion` records against the `workflow_step` definitions that apply to their chapter and member type:
 
 ```
-required_steps = workflow_step WHERE chapter_id = ? AND applies_to @> [member_type] AND required = true
-completed_required = step_completion WHERE registration_cycle_id = ? AND step_name IN (required_steps.name) AND status = 'complete'
+-- actual column names from live DB
+required_steps = workflow_step
+  WHERE chapter_id = ? AND required = true
+  -- member-type applicability checked via config jsonb
+
+completed_required = step_completion
+  WHERE cycle_id = ?
+    AND workflow_step_id IN (required_steps.id)
+    AND status = 'complete'
 
 if completed_required.count < required_steps.count:
   clearance = 'none'   -- missing required step(s); no clearance regardless of score
 else:
-  exam_score = step_completion WHERE step_name = 'THSBOA state test' AND status = 'complete' → score
+  exam_score = step_completion
+    JOIN workflow_step ON workflow_step_id = workflow_step.id
+    WHERE name = 'THSBOA state test' AND status = 'complete'
+    → (data->>'score')::numeric
+
   if exam_score >= 90: clearance = 'playoff'   -- cleared for regular season AND playoffs
   elif exam_score >= 70: clearance = 'regular'  -- cleared for regular season only
   else: clearance = 'none'                       -- all required steps done but score too low

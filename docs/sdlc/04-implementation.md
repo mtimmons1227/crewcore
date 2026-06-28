@@ -25,14 +25,14 @@ Write the code that realizes the design — in vertical slices that each ship us
 
 ### Slice 1 — Lead Capture + Command Center ✅ Done
 
-**Schema (5 migrations, all applied to `fcmesyfijtnrsdhypqn`):**
+**Schema (5 migrations, all applied to `nfcmesyfijtnrsdhypqn`):**
 
 | Migration file | What it adds |
 |---|---|
-| `20260618212707_slice1_recruit_core_schema.sql` | Core tables (`sport`, `association`, `chapter`, `person`, `membership`, `lead`), RLS on all tables, `submit_lead` RPC, DBOA + THSBOA + Basketball seed |
-| `20260618213000_add_chapter_slug.sql` | `chapter.slug` (unique text); sets `DBOA` slug on seeded chapter |
-| `20260619053500_add_chapter_display_fields.sql` | `chapter.tagline`, `chapter.hero_text`, `chapter.accent_color`; sets DBOA display values |
-| `20260619121500_add_person_auth_user_id_and_recruiter_rls.sql` | `person.auth_user_id` (unique FK → `auth.users`); `current_person_id()` and `current_user_chapter_ids()` RPCs; recruiter + chapter_admin read policies on `lead`, `person`, `membership` |
+| `20260619011113_slice1_recruit_core_schema.sql` | Core tables (`sport`, `association`, `chapter`, `person`, `membership`, `lead`), RLS on all tables, `submit_lead` RPC, DBOA + THSBOA + Basketball seed |
+| `20260619021454_add_chapter_slug.sql` | `chapter.slug` (unique text); sets `DBOA` slug on seeded chapter |
+| `20260619053826_add_chapter_display_fields.sql` | `chapter.tagline`, `chapter.hero_text`, `chapter.accent_color`; sets DBOA display values |
+| `20260619193203_command_center_auth_and_recruiter_rls.sql` | `person.auth_user_id` (unique FK → `auth.users`); `current_person_id()` and `current_user_chapter_ids()` RPCs; recruiter + chapter_admin read policies on `lead`, `person`, `membership` |
 | `20260619201720_lockdown_internal_rls_helper_functions.sql` | Revokes `execute` on `current_person_id()` and `current_user_chapter_ids()` from `public` and `anon`; grants only to `authenticated` |
 
 **Frontend delivered:**
@@ -47,21 +47,19 @@ Write the code that realizes the design — in vertical slices that each ship us
 
 | Migration file | What it adds |
 |---|---|
-| `20260620010000_add_registration_cycles.sql` | `registration_cycle` table: per-recruit onboarding cycle with `lead_id`, `chapter_id`, `current_step`, `status`, `cleared_at` |
-| `20260620011000_add_step_completion.sql` | `step_completion` table: per-cycle step records with `step_name`, `status` (pending/complete/dropout), `score`, `completed_at` |
-| `20260620012000_add_registration_step_definitions.sql` | `registration_step` table: configurable step definitions with `name`, `description`, `sort_order`, `completion_mode` |
-| `20260620013000_add_magic_link_tokens.sql` | `magic_link_token` table: `registration_cycle_id`, `token` (unique), `expires_at`, `used_at` |
+| `20260619215722_slice2_registration_clearance_engine.sql` | `registration_cycle` table (`person_id`, `chapter_id`, `sport_id`, `season_id`, `member_type`, `clearance_level`, `access_token`), `step_completion` table (`cycle_id`, `workflow_step_id`, `data jsonb`, `attempts`), `workflow_step` table, DBOA 8-step seed, RLS policies |
+| `20260619223447_slice2_self_serve_registration_rpcs.sql` | `start_registration`, `get_registration`, `complete_step`, `recompute_cycle_clearance` RPCs |
+| `20260619223612_lockdown_slice2_internal_functions.sql` | Revokes public execute on `recompute_cycle_clearance`; grants to service_role only |
+| `20260621180834_slice2_clearance_passfail_and_cycle_person_read.sql` | Clearance pass/fail logic; `person` read policy for staff viewing registration cycle members |
 
-**Direct DB changes (not yet mirrored as migration files):**
-- `workflow_step` table created in live DB with the full DBOA 8-step seed (including `authority`, `applies_to`, `required` fields).
-- `chapter.logo_url` column added; DBOA record updated to point to Supabase Storage bucket `chapter-logos` / `dboa-logo.png`.
+Note: there is no `magic_link_token` table. The recruit's token is `registration_cycle.access_token` — a UUID generated at cycle creation (`gen_random_uuid()`). `get_registration` and `complete_step` accept it as `p_token`.
 
 **Backend logic delivered (applied directly to live DB; migration files pending):**
 - **`start_registration(p_email, p_chapter_id, p_sport_id, p_season_id, p_member_type)`** — creates a `registration_cycle` for an existing person (by email) and returns a fresh `magic_link_token`.
 - **`get_registration(p_token)`** — token-gated read; returns the full cycle + step list for the recruit status page.
 - **`complete_step(p_token, p_step_id, p_data)`** — validates the token, enforces `completion_mode` (self_report vs. staff_verify), writes the `step_completion` record, and triggers clearance recompute.
 - **`recompute_cycle_clearance(p_cycle_id)`** — internal; evaluates required steps and "THSBOA state test" score (≥ 70 regular / ≥ 90 playoff); updates `registration_cycle.clearance_level`.
-- **Trigger `tg_step_completion_cascade`** — `AFTER INSERT OR UPDATE ON step_completion`; calls `recompute_cycle_clearance` so clearance stays consistent with completion records even on direct DB inserts.
+- **Trigger `tg_step_completion_cascade`** — `AFTER INSERT OR UPDATE ON step_completion`; unlocks dependent steps and calls `recompute_cycle_clearance` so clearance stays consistent with completion records even on direct DB inserts.
 
 **Frontend delivered:**
 - `/r/:token` — `RecruitMenuPage.tsx`: magic-link-driven onboarding timeline; shows step list with status icons (check/ready/locked); inline assessment score entry (70+ to pass); progress summary ("Completed X · Ready Y · Locked Z").
@@ -76,10 +74,10 @@ Write the code that realizes the design — in vertical slices that each ship us
 
 ### Post-Slice-2 additions
 
-These were applied after Slice 2 closed, outside the slice boundary:
+These were applied after Slice 2 closed, outside the slice boundary; both now have applied migration files:
 
-- **`workflow_step.authority` column** — added directly to the live `workflow_step` table. Distinguishes state-mandated steps (`'state'`) from chapter-controlled steps (`'chapter'`). Migration file pending: `20260627182800_add_workflow_step_authority.sql` (user to drop into `supabase/migrations/`).
-- **Chapter logo** — `chapter.logo_url` column added; Supabase Storage bucket `chapter-logos` created; `dboa-logo.png` uploaded; DBOA record updated. Logo renders in the Command Center header and the lead capture page dark header bar; falls back to text-only if `null`.
+- **`workflow_step.authority` column** — migration `20260627182800_add_workflow_step_authority.sql` ✅ applied. Distinguishes state-mandated steps (`'state'`) from chapter-controlled steps (`'chapter'`).
+- **Chapter logo** — migration `20260627231447_add_chapter_logo_url.sql` ✅ applied. `chapter.logo_url` column added; Supabase Storage bucket `chapter-logos` created; `dboa-logo.png` uploaded; DBOA record updated. Logo renders in the Command Center header and the lead capture page dark header bar; falls back to text-only if `null`.
 - **Theme token consolidation** — `tailwind.config.js` expanded with `teal.*` color scale (values: navy/slate/blue, despite the `teal` naming), `shadow-card`, `shadow-hero`, `rounded-card`, `rounded-panel`; `styles.css` `:root` block with `--teal-*` CSS custom properties; all hardcoded hex values in CSS replaced with `var(--teal-*)` references. Lead capture page migrated from CSS class-based styling to Tailwind utilities.
 
 ### The runtime-defect lesson
@@ -126,4 +124,4 @@ The database is the source of truth. All schema changes go through SQL migration
 
 ---
 
-**Status: 🔄 In progress.** Slices 1–2 done and pushed to `origin/main`. Slice 3 (Dues/Stripe) begins after board validation of the pricing model. Two schema gaps to close before Slice 3: (1) `workflow_step` table needs a migration file; (2) `workflow_step.authority` column needs a migration file.
+**Status: 🔄 In progress.** Slices 1–2 done and pushed to `origin/main`. All 11 migrations applied to `nfcmesyfijtnrsdhypqn`; no schema drift. Slice 3 (Dues/Stripe) begins after board validation of the pricing model.

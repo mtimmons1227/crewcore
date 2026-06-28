@@ -129,7 +129,7 @@ As the surface area grows, the manual approach becomes too slow. The following a
 
 - `supabase/migrations/*` — the RLS policies under test.
 - [`../SESSION-LOG.md`](../SESSION-LOG.md) — records verification results per slice and standing gotchas.
-- Supabase dashboard (project `fcmesyfijtnrsdhypqn`) — SQL editor for DB-state assertions.
+- Supabase dashboard (project `nfcmesyfijtnrsdhypqn`) — SQL editor for DB-state assertions.
 - See the [artifact index](../artifacts/README.md).
 
 ---

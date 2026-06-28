@@ -39,9 +39,7 @@ Keep the system correct, current, and secure after a chapter is using it in prod
 
 **Rule:** Every schema change — including column additions, index creation, and constraint changes — gets a migration file in `supabase/migrations/` before the next migration is applied. The file is named `YYYYMMDDHHMMSS_description.sql`. It is idempotent (`IF NOT EXISTS`, `IF NOT EXISTS` on indexes, `DO $$ BEGIN ... EXCEPTION WHEN ... END $$` for constraint adds).
 
-**Current drift to resolve:**
-1. The `workflow_step` table (created directly in Slice 2) needs a migration file capturing its full schema and the DBOA 8-step seed.
-2. The `workflow_step.authority` column (added post-Slice-2) needs `20260627182800_add_workflow_step_authority.sql` (user to drop into `supabase/migrations/`).
+**Current drift:** None as of 2026-06-27. All 11 migrations are applied to `nfcmesyfijtnrsdhypqn` and tracked in the repo. `workflow_step` table was created in `slice2_registration_clearance_engine`. The `authority` column was added via `add_workflow_step_authority` (applied). The `logo_url` column was added via `add_chapter_logo_url` (applied). No unmirrored direct-DB changes remain.
 
 ### Seasonal rollover
 
@@ -75,7 +73,7 @@ Keep the system correct, current, and secure after a chapter is using it in prod
 - The migration files in `supabase/migrations/` are the schema restore path; they rebuild the structure but not the data. PITR covers data restoration.
 
 **What to back up manually:**
-- The DBOA `workflow_step` seed — currently only in the live DB, not in a migration file. Export it as a SQL `INSERT` statement and add it to the pending migration file.
+- Migration files in `supabase/migrations/` rebuild the schema. PITR covers data restoration. No unmirrored schema remains as of 2026-06-27.
 
 ### Regular `get_advisors` review
 

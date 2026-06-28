@@ -24,7 +24,7 @@ Ship the system to where real users can reach it — and run it reliably. For Cr
 
 ## Current state (local only)
 
-**Backend (live):** Supabase project `fcmesyfijtnrsdhypqn` is the production database. All schema, RLS, RPCs, triggers, and seed data are applied and live. This is not a test environment — it holds real recruits.
+**Backend (live):** Supabase project `nfcmesyfijtnrsdhypqn` is the production database. All schema, RLS, RPCs, triggers, and seed data are applied and live. This is not a test environment — it holds real recruits.
 
 **Frontend (local dev server only):** `cd apps/web && npm run dev` starts the Vite dev server at `http://localhost:5173` (or 5174 if 5173 is in use). The public lead capture form, the recruit status page, and the Command Center all work locally against the live Supabase backend.
 
@@ -50,7 +50,7 @@ Requirements:
 ### Step 2 — Environment and secret handling
 
 **What goes in environment variables (at the host):**
-- `VITE_SUPABASE_URL` — the Supabase project REST URL (e.g. `https://fcmesyfijtnrsdhypqn.supabase.co`).
+- `VITE_SUPABASE_URL` — the Supabase project REST URL (e.g. `https://nfcmesyfijtnrsdhypqn.supabase.co`).
 - `VITE_SUPABASE_ANON_KEY` — the Supabase anon/publishable key.
 
 **Why the anon key is safe in the browser:** The anon key is a publishable key — it identifies the project, not a user. Access to data is determined entirely by RLS policies. The anon key alone cannot read `person`, `lead`, or any protected table. The only write path it enables is through the `submit_lead` security-definer function, which is intentional.
