@@ -56,10 +56,12 @@ Write the code that realizes the design — in vertical slices that each ship us
 - `workflow_step` table created in live DB with the full DBOA 8-step seed (including `authority`, `applies_to`, `required` fields).
 - `chapter.logo_url` column added; DBOA record updated to point to Supabase Storage bucket `chapter-logos` / `dboa-logo.png`.
 
-**Backend logic delivered:**
-- RPCs for step advancement and clearance evaluation (applied directly to live DB; security-definer; validate completion mode, token, and step gating before advancing).
-- Trigger on `step_completion` that re-evaluates and updates `registration_cycle.clearance_level` on each insert or update.
-- Tiered clearance computation: required step check → exam score threshold (70 regular / 90 playoff).
+**Backend logic delivered (applied directly to live DB; migration files pending):**
+- **`start_registration(p_email, p_chapter_id, p_sport_id, p_season_id, p_member_type)`** — creates a `registration_cycle` for an existing person (by email) and returns a fresh `magic_link_token`.
+- **`get_registration(p_token)`** — token-gated read; returns the full cycle + step list for the recruit status page.
+- **`complete_step(p_token, p_step_id, p_data)`** — validates the token, enforces `completion_mode` (self_report vs. staff_verify), writes the `step_completion` record, and triggers clearance recompute.
+- **`recompute_cycle_clearance(p_cycle_id)`** — internal; evaluates required steps and "THSBOA state test" score (≥ 70 regular / ≥ 90 playoff); updates `registration_cycle.clearance_level`.
+- **Trigger `tg_step_completion_cascade`** — `AFTER INSERT OR UPDATE ON step_completion`; calls `recompute_cycle_clearance` so clearance stays consistent with completion records even on direct DB inserts.
 
 **Frontend delivered:**
 - `/r/:token` — `RecruitMenuPage.tsx`: magic-link-driven onboarding timeline; shows step list with status icons (check/ready/locked); inline assessment score entry (70+ to pass); progress summary ("Completed X · Ready Y · Locked Z").

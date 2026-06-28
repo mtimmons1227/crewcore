@@ -57,9 +57,9 @@ These cases verify the tiered clearance algorithm. Each test sets up a `registra
 | C-2 | Exam score at regular threshold | All required steps complete; exam score = 70 | `regular` |
 | C-3 | Exam score at playoff threshold | All required steps complete; exam score = 90 | `playoff` |
 | C-4 | Exam score above playoff threshold | All required steps complete; exam score = 95 | `playoff` |
-| C-5 | Required step missing, score = 90 | Background check not complete; all other required steps done; exam score = 90 | `none` |
-| C-6 | Optional step missing, score = 70 | All required steps complete; optional step (e.g., orientation for returning) not done; exam score = 70 | `regular` (optional step doesn't block) |
-| C-7 | Step not applicable to member type | Returning official: mentor eval step (`applies_to: ['new']` only) not completed; all applicable required steps done; exam score = 70 | `regular` (inapplicable step doesn't block) |
+| C-5 | Required step missing, score = 90 | "Background check & abuse-prevention training" not complete; all other required steps done; exam score = 90 | `none` |
+| C-6 | Optional step missing, score = 70 | All required steps complete; "Required off-season training" (`required = false`) not done; exam score = 70 | `regular` (optional step doesn't block) |
+| C-7 | Step not applicable to member type | Returning official: "DBOA training camp" applies only to new officials in this season; step absent from cycle; all applicable required steps done; exam score = 70 | `regular` (inapplicable step doesn't block) |
 | C-8 | No exam score at all | All required steps complete; no exam step_completion record | `none` |
 
 **Status: C-1 through C-4 verified in browser with sample recruits. C-5 through C-8 defined; pending verification with test data.**
@@ -70,9 +70,9 @@ These cases verify that the RPCs enforce their access rules.
 
 | # | Scenario | Call | Expected |
 |---|---|---|---|
-| G-1 | Advance a locked step | Call advance_rpc with a step in `locked` status | Rejected; error response |
-| G-2 | Self-report a `staff_verify` step as a recruit | Recruit calls advance_rpc for a `staff_verify` step via magic link | Rejected; completion mode mismatch error |
-| G-3 | Staff verifies a `self_report` step | Staff calls advance_rpc for a `self_report` step | Should succeed (staff can always advance) |
+| G-1 | Advance a locked step | Call `complete_step` with a step whose prerequisites are incomplete | Rejected; step not yet available |
+| G-2 | Self-report a `staff_verify` step as a recruit | Recruit calls `complete_step` via magic-link token for a `staff_verify` step (e.g., "Background check & abuse-prevention training") | Rejected; completion mode mismatch |
+| G-3 | Staff completes a `self_report` step via authenticated session | Staff calls `complete_step` authenticated for a `self_report` step | Should succeed (staff can complete any step) |
 | G-4 | Expired magic link token | Request `/r/:token` with a token past `expires_at` | Rejected; token expired response |
 | G-5 | Invalid / nonexistent token | Request `/r/:token` with a made-up token | Rejected; token not found |
 | G-6 | Staff advances step for another chapter's recruit | Staff user from chapter A calls advance for chapter B's recruit | Rejected; RLS violation |

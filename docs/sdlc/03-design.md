@@ -163,20 +163,25 @@ The computed clearance level is stored in `registration_cycle.clearance_level` a
 **Public reads (no auth required):**
 - `sport`, `association`, `chapter` — public SELECT enabled. These tables contain only reference data and chapter branding needed to render the public lead capture form.
 
-**Auth-mapped helpers (authenticated only; locked down from public and anon):**
+**Auth-mapped helpers (authenticated only; locked down from `public` and `anon`):**
 
-- **`public.current_person_id()`** — resolves the calling auth user's `auth.uid()` to a `person.id` via `auth_user_id`. Security definer, stable, locked to `authenticated` role.
-- **`public.current_user_chapter_ids()`** — returns the set of `chapter_id` values where the calling user has membership role `recruiter` or `chapter_admin`. Security definer, stable, locked to `authenticated` role.
+- **`public.current_person_id()`** — resolves `auth.uid()` to a `person.id` via `auth_user_id`. Security definer, stable, locked to `authenticated`. Used by RLS policies to identify the calling user in our people model without a join on every evaluation.
+- **`public.current_user_chapter_ids()`** — returns the set of `chapter_id` values where the calling user holds `recruiter` or `chapter_admin` membership. Security definer, stable, locked to `authenticated`. The core of multi-tenant isolation: every authenticated read of `lead`, `registration_cycle`, and `step_completion` is gated to the chapters this function returns.
 
-**The 4 RPCs:**
+**The 4 public RPCs:**
 
-1. **`public.submit_lead(p_chapter_id, p_full_name, p_phone, p_email, p_sport_id, p_source)`** — anonymous lead capture. Security definer; granted to `anon` and `authenticated`. Upserts the `person` by email or phone, then inserts a `lead`. The public form never touches `person` or `lead` directly.
+1. **`public.submit_lead(p_chapter_id, p_full_name, p_phone, p_email, p_sport_id, p_source)`** — anonymous lead capture. Security definer; granted to `anon` and `authenticated`. Upserts `person` by email or phone, then inserts a `lead`. The public form never touches `person` or `lead` directly.
 
-2. **`public.current_person_id()`** — identity resolver for authenticated staff. Used by RLS policies as an efficient way to answer "who is the calling user in our people model?" without a join on every policy evaluation.
+2. **`public.start_registration(p_email, p_chapter_id, p_sport_id, p_season_id, p_member_type)`** — creates a `registration_cycle` for an existing `person` (looked up by email), scoped to the given chapter, sport, season, and member type. Returns the new cycle id and a fresh `magic_link_token`. Called by staff when a lead is ready to begin structured onboarding.
 
-3. **`public.current_user_chapter_ids()`** — chapter access resolver for authenticated staff. The core of the multi-tenant isolation model: every authenticated read of `lead`, `registration_cycle`, and `step_completion` is gated to chapters returned by this function.
+3. **`public.get_registration(p_token)`** — token-gated read for the recruit status page. Validates the magic-link token, returns the full registration cycle with its step list and current completion state. Accessible without auth (token is the credential); returns an error if the token is expired or not found.
 
-4. **`public.advance_registration_step()`** *(Slice 2, applied directly to live DB)* — handles step progression and re-evaluates clearance on each advancement. Security definer; validates completion mode (rejects self-report on staff_verify steps and vice versa), validates token for recruit-facing calls, and updates `registration_cycle.clearance_level`.
+4. **`public.complete_step(p_token, p_step_id, p_data)`** — marks a step complete within a registration cycle. Validates: token is valid and unexpired; the step belongs to the cycle; the step's `completion_mode` matches who is calling (recruits can only complete `self_report` steps via token; staff can complete any step when authenticated). Passes `p_data` (e.g., `{"score": 82}` for the state test) to `recompute_cycle_clearance` after writing the completion record.
+
+**Internal functions:**
+
+- **`public.recompute_cycle_clearance(p_cycle_id)`** — recomputes `registration_cycle.clearance_level` from the current `step_completion` records for the cycle. Applies the tiered clearance algorithm (required-step check → "THSBOA state test" score → `none` / `regular` / `playoff`). Called by `complete_step` and by the trigger below.
+- **Trigger `tg_step_completion_cascade`** — fires `AFTER INSERT OR UPDATE` on `step_completion`; calls `recompute_cycle_clearance` so clearance is always consistent with completion records, even when records are inserted directly (e.g., via dashboard or migration scripts).
 
 **RLS policies (summary):**
 - `sport`, `association`, `chapter`: `FOR SELECT USING (true)` — public.
@@ -196,30 +201,30 @@ completed_required = step_completion WHERE registration_cycle_id = ? AND step_na
 if completed_required.count < required_steps.count:
   clearance = 'none'   -- missing required step(s); no clearance regardless of score
 else:
-  exam_score = step_completion WHERE step_name = 'Rules Exam' AND status = 'complete' → score
+  exam_score = step_completion WHERE step_name = 'THSBOA state test' AND status = 'complete' → score
   if exam_score >= 90: clearance = 'playoff'   -- cleared for regular season AND playoffs
   elif exam_score >= 70: clearance = 'regular'  -- cleared for regular season only
   else: clearance = 'none'                       -- all required steps done but score too low
 ```
 
-Edge cases: no exam score recorded → `clearance = 'none'`; a step completed but later reversed → clearance recalculates to reflect current state.
+Thresholds: **70** = regular-season clearance; **90** = playoff clearance. State exam administered via ArbiterSports org **6577**; score entered into CrewCore via `complete_step`. Edge cases: no exam score recorded → `clearance = 'none'`; a step reversed → clearance recalculates from current records.
 
 ### DBOA workflow seed (8 steps)
 
-The DBOA chapter is seeded with 8 `workflow_step` rows defining their onboarding sequence. The authoritative seed is in the live database (applied directly during Slice 2). The step names and configurations are:
+The DBOA chapter is seeded with 8 `workflow_step` rows defining their onboarding sequence. The authoritative seed is in the live database (applied directly during Slice 2). Exact step names and configurations:
 
-| # | Step | Mode | Required | Applies to | Authority |
+| # | Step name (exact) | Authority | Cadence | Required | Notes |
 |---|---|---|---|---|---|
-| 1 | ArbiterSports Account | self_report | Yes | new, returning, transfer | state |
-| 2 | NFHS Rules Exam | self_report (score entry) | Yes | new, returning, transfer | state |
-| 3 | Background Check | staff_verify | Yes | new, returning, transfer | chapter |
-| 4 | THSBOA Registration | self_report | Yes | new, returning, transfer | state |
-| 5 | Chapter Dues Payment | self_report | Yes | new, returning, transfer | chapter |
-| 6 | Chapter Orientation Clinic | staff_verify | Yes | new, transfer | chapter |
-| 7 | Mentor Evaluation | staff_verify | Yes | new | chapter |
-| 8 | Final Clearance Review | staff_verify | Yes | new, returning, transfer | chapter |
+| 1 | Chapter application & dues | chapter | annual | Yes | DBOA-controlled; dues $125 new / $175 returning & transfer |
+| 2 | THSBOA state registration & dues | state | annual | Yes | Registered via ArbiterSports org 6577 |
+| 3 | Receive NFHS Rulebook & Case Book | state | annual | Yes | Physical or digital receipt |
+| 4 | Receive NFHS Mechanics Manual | state | **biennial** | Yes | Required every other year, not annually |
+| 5 | THSBOA state test | state | annual | Yes | Score entered via `complete_step`; ≥ 70 → regular clearance; ≥ 90 → playoff clearance; via ArbiterSports org 6577 |
+| 6 | Background check & abuse-prevention training | state | annual | Yes | Staff-verified |
+| 7 | DBOA training camp | chapter | **biennial** | Yes | DBOA-controlled; required every other year |
+| 8 | Required off-season training (new / 2nd-year / Div IV-V) | chapter | annual | **No** | Applies to new officials, 2nd-year officials, and those in divisions IV–V; not required for clearance |
 
-Steps 1, 2, 4 are `authority = 'state'` (state-mandated; cannot be removed by DBOA admin). Steps 3, 5–8 are `authority = 'chapter'` (DBOA-controlled). Step 6 (orientation) and Step 7 (evaluation) do not apply to returning officials — they have already completed these in prior seasons.
+Steps 2–6 are `authority = 'state'` — state-mandated; cannot be removed or waived by the DBOA chapter admin. Steps 1, 7, 8 are `authority = 'chapter'` — DBOA-controlled and configurable. Step 8 is the only step with `required = false`; it is present in the workflow for tracking but does not block clearance.
 
 ### UI architecture
 
