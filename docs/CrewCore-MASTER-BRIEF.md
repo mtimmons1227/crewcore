@@ -1,6 +1,6 @@
 # CrewCore — MASTER BRIEF
 **Self-contained handoff. A new session can read this one file and know the whole project.**
-**Verified against the live Supabase database on 2026-06-27. Project ref: `nfcmesyfijtnrsdhypqn`.**
+**Last verified against the live Supabase database on 2026-06-27; session log updated 2026-06-28. Project ref: `nfcmesyfijtnrsdhypqn`.**
 
 > How to use this file in a new chat: upload this file + `SESSION-LOG.md`, then say:
 > *"Continue CrewCore. Read these, verify against Supabase `nfcmesyfijtnrsdhypqn`, pick up the open items."*
@@ -25,15 +25,17 @@ CrewCore is a recruiting-and-onboarding SaaS for sports-officiating chapters —
 - Public lead-capture page (`/`) → `submit_lead` RPC.
 - Self-serve registration via magic-link token (`/r/:token`) → recruit onboarding timeline.
 - Tiered clearance engine (regular ≥70 / playoff ≥90), auto-computed by trigger.
-- Staff Command Center (`/command`): auth + recruit roster with detail panel, stalled/cleared flags, step checklist.
-- DBOA seeded with the real 8-step workflow.
+- Staff Command Center (`/command`): auth + recruit roster with expand-detail panel, due-date-based stalled/cleared badges, step checklist.
+- DBOA workflow expanded to **11 steps** (from 8 — added new officials training, uniform purchase, 6 general-session meetings; steps reordered; background check moved up). Full dependency graph wired.
 - `authority` field (chapter vs state) on workflow steps. DBOA logo hosted + `logo_url` rendered.
-- Tailwind/EarnedHome restyle of the Command Center.
+- **Full app restyle complete** (all three pages): dark navy header, white Card surfaces, slate text, neutral progress bars. Recruit timeline shows per-step authority colors (emerald = chapter, blue = state), due-date chips, and "Stalled" header indicator. Command Center STATUS badge is rose for stalled cycles. No per-page custom CSS.
+- **Deadline policy live**: Chapter dues auto-set `due_at` = 7 days from registration. All other steps deadline-free until chapter schedules them. Stalled = any `step_completion` with `due_at < now()` and `status != 'complete'`.
+- **Pending DB action**: migration `20260628000000_expose_due_at_in_get_registration.sql` committed but not yet pushed to live DB. Run `npx supabase db push --project-ref nfcmesyfijtnrsdhypqn` to activate due-date display.
 
 **Frontend stack:** Vite + React + TypeScript + Tailwind. App lives at `apps/web`. Three React pages: `LeadCapturePage.tsx`, `RecruitMenuPage.tsx` (`/r/:token`), `CommandCenterPage.tsx`.
 *(Frontend code lives ONLY in the repo — this web chat cannot see it. Confirm frontend facts via Claude Code or by viewing the running app.)*
 
-**NEXT BUILD — Slice 3: Dues collection (Stripe).** This is the recurring-revenue rail and makes the 10% success fee auto-enforceable.
+**NEXT BUILD — Slice 3: Dues collection (Stripe).** Scoped: recruit pays chapter dues via Stripe Checkout → webhook → Supabase Edge Function → auto-completes the chapter-dues `step_completion` row. This is the recurring-revenue rail and makes the 10% success fee auto-enforceable. **Gated on board demo.**
 
 **Canonical slice roadmap:**
 1. ✅ Lead capture + Command Center
@@ -64,7 +66,7 @@ All chapter-scoped tables enforce isolation via RLS. Key tables:
 
 **Snapshot model:** when a recruit registers, `step_completion` rows are copied from the template — so editing a chapter's workflow does NOT retroactively change recruits already in flight (except where `authority='state'` justifies forced propagation).
 
-**Current data:** 1 chapter, 1 sport, 1 season, 3 persons, 4 leads, 8 workflow steps, 2 registration cycles, 16 step completions, 1 auth user (`marv_timmons@yahoo.com`). No sample recruits (cleaned). Real recruits: Aaron Hill, Marvin Timmons.
+**Current data:** 1 chapter, 1 sport, 1 season, 3+ persons, 4+ leads, **11 workflow steps** (expanded from 8), 2+ registration cycles, 1 auth user (`marv_timmons@yahoo.com`). **Two demo recruits in live DB** — "Jordan Sample (demo)" (fresh, gated) and "Riley Stalled (demo)" (backdated `due_at`, visibly stalled) — **remove after board demo.** Real recruits: Aaron Hill, Marvin Timmons.
 
 ---
 
@@ -91,20 +93,31 @@ A cycle clears when all **required** steps are complete. `clearance_level`: `non
 
 ---
 
-## 6. DBOA workflow (8 steps, verified — exact names & config)
+## 6. DBOA workflow (11 steps — expanded from 8 on 2026-06-28)
+
+Workflow was reordered and expanded. The original 8 steps are confirmed; 3 new steps were added (Purchase uniform, DBOA new officials training, Attend 6 general session meetings); background check was moved up. **Reverify full table + sort_order against Supabase before next session** (`SELECT id, name, sort_order, step_type, cadence, required, completion_mode, authority FROM workflow_step ORDER BY sort_order`).
+
+**Original 8 steps (confirmed config):**
 
 | # | Name | type | cadence | required | mode | authority |
 |---|------|------|---------|----------|------|-----------|
-| 1 | Chapter application & dues | payment | annual | yes | staff_verify | chapter |
-| 2 | THSBOA state registration & dues | external_confirm | annual | yes | self_report | state |
-| 3 | Receive NFHS Rulebook & Case Book | acknowledgment | annual | yes | self_report | state |
-| 4 | Receive NFHS Mechanics Manual | acknowledgment | **biennial** | yes | self_report | state |
-| 5 | THSBOA state test | assessment | annual | yes | self_report | state |
-| 6 | Background check & abuse-prevention training | credential | annual | yes | self_report | state |
-| 7 | DBOA training camp | attendance | **biennial** | yes | staff_verify | chapter |
-| 8 | Required off-season training (new / 2nd-year / Div IV-V) | attendance | annual | **no** | staff_verify | chapter |
+| — | Chapter application & dues | payment | annual | yes | staff_verify | chapter |
+| — | THSBOA state registration & dues | external_confirm | annual | yes | self_report | state |
+| — | Receive NFHS Rulebook & Case Book | acknowledgment | annual | yes | self_report | state |
+| — | Receive NFHS Mechanics Manual | acknowledgment | **biennial** | yes | self_report | state |
+| — | THSBOA state test | assessment | annual | yes | self_report | state |
+| — | Background check & abuse-prevention training | credential | annual | yes | self_report | state |
+| — | DBOA training camp | attendance | **biennial** | yes | staff_verify | chapter |
+| — | Required off-season training (new / 2nd-year / Div IV-V) | attendance | annual | **no** | staff_verify | chapter |
 
-**Real config details:** Step 1 dues: new $125; returning $125 until 2026-04-01 then $175; transfer $175 (requires documentation from previous chapter); link thedboa.com/join. Step 2 state dues via **ArbiterSports org 6577** (new $70; returning $70 until 2026-06-30 then $110; nonrefundable). Step 4 mechanics manual distributed by `division_rep`. Step 5 thresholds 70/90 via ArbiterSports. Step 6 "physical not required," required_by THSBOA. Step 7 camp fee $75, dates 2026-07-17/18/19, two- & three-person, deadline 2026-07-01, JotForm signup. Step 8 required for new/2nd-year/Div IV-V at Walnut Hill ILA.
+**3 new steps added (sort_order + full config TBD — verify in DB):**
+- **Purchase uniform** — payment, chapter authority
+- **DBOA new officials training** — attendance, chapter authority
+- **Attend 6 general session meetings** — attendance, `count_required: 6`, chapter authority
+
+**Original config details (still valid):** Step "Chapter dues": new $125; returning $125 until 2026-04-01 then $175; transfer $175 (requires documentation); link thedboa.com/join; `config.due = {type:"relative", days:7}` (due_at set at registration). Step "THSBOA state registration": ArbiterSports org 6577 (new $70; returning $70 until 2026-06-30 then $110; nonrefundable). Step "Mechanics Manual": distributed by `division_rep`. Step "THSBOA state test": thresholds 70/90 via ArbiterSports. Step "Background check": "physical not required," required_by THSBOA. Step "DBOA training camp": fee $75, dates 2026-07-17/18/19, deadline 2026-07-01, JotForm signup. Step "Off-season training": required for new/2nd-year/Div IV-V at Walnut Hill ILA.
+
+**Dependency graph (wired):** state registration → chapter dues (prereq); state test → mechanics manual (prereq); camp has no prereq; others follow sort_order unlocking.
 
 ---
 
@@ -134,10 +147,13 @@ What a transfer repeats depends on three dimensions: **authority** (chapter step
 ## 9. Open items / next actions
 
 1. **Highest value (off-keyboard):** take the board one-pager + founding agreement + live demo to DBOA's board; get willingness-to-pay validation.
-2. **Frontend (Claude Code):** flip lead page + recruit timeline from teal to navy/slate (Command Center theme) — note `chapter.accent_color` is stored teal `#0d9488`, a second source of teal; decide hardcoded-navy vs per-chapter theming. Confirm/build a dedicated staff login page (currently an inline gate on `/command`).
-3. **Next build:** Slice 3 — Stripe dues. Gated on board reaction.
-4. **Security (before real users):** fix `start_registration` token disclosure + assessment self-report clearance; pre-launch hardening checklist.
-5. **Docs housekeeping:** keep this brief + `SESSION-LOG.md` in `docs/`, updated each session, committed by Claude Code.
+2. **Push migration to live DB** (pending from 2026-06-28 session — MCP deploy blocked): `npx supabase db push --project-ref nfcmesyfijtnrsdhypqn`. Activates per-step due-date chips and "Stalled" badge on the recruit page.
+3. **Remove demo recruits after board demo:** "Jordan Sample (demo)" and "Riley Stalled (demo)" — both exist in live DB, clearly labeled, safe to delete post-demo.
+4. **Frontend (Claude Code):** flip lead capture page (`/`) from teal to navy/slate to match the rest of the app. (Recruit timeline restyle is done. `chapter.accent_color = #0d9488` is a second teal source — keep in mind if theming becomes per-chapter.)
+5. **Next build:** Slice 3 — Stripe dues (scoped: Checkout → webhook → Edge Function → auto-complete chapter-dues step). Gated on board reaction.
+6. **Security (before real users):** fix `start_registration` token disclosure + assessment self-report clearance; pre-launch hardening checklist.
+7. **Reverify 11-step workflow in DB** for full sort_order, config, and prereq graph after the expansion on 2026-06-28 (section 6 has the 3 new step names but not their full config).
+8. **Docs housekeeping:** keep this brief + `SESSION-LOG.md` in `docs/`, updated each session, committed by Claude Code.
 
 ---
 
@@ -154,4 +170,4 @@ What a transfer repeats depends on three dimensions: **authority** (chapter step
 - **CrowdIQ source files** (NOT in this repo — re-upload if CrowdIQ comes up): `crowdiq_design.md`, `crowdiq_operating_guide.md`, `crowdiq_roadmap.md`, Pulse capabilities PDF.
 
 ---
-*This brief is ground-truth as of 2026-06-27, verified directly against the live database. When in doubt, re-query Supabase `nfcmesyfijtnrsdhypqn` — the database never drifts; docs can.*
+*This brief reflects the state as of 2026-06-28. DB schema last verified 2026-06-27; build status updated from session notes 2026-06-28. When in doubt, re-query Supabase `nfcmesyfijtnrsdhypqn` — the database never drifts; docs can.*
