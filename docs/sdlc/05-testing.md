@@ -91,6 +91,24 @@ These cases verify that the RPCs enforce their access rules.
 
 **Status: R-3 and R-4 verified (Slice 1 lockdown confirmed). R-1, R-2, R-5 defined; pending second-chapter test data.**
 
+#### Stalled-status and due-date tests (2026-06-28)
+
+Two demo recruits were added to the live DB for board demo prep and stalled-status verification. **Remove both after the board demo.**
+
+- **Jordan Sample (demo)** — fresh cycle, no overdue steps. Verifies the non-stalled path.
+- **Riley Stalled (demo)** — chapter dues step has `due_at` backdated past today, `status != 'complete'`. Verifies the stalled path on both Command Center and the recruit page.
+
+| # | Scenario | Setup | Expected | Status |
+|---|---|---|---|---|
+| S-1 | Fresh recruit — no overdue steps | Jordan Sample (demo): no `due_at` set or all future | STATUS shows "In progress" (slate); no "Stalled" on recruit page | ✅ Verified |
+| S-2 | Stalled recruit — overdue `due_at` | Riley Stalled (demo): dues step `due_at` in the past, `status != 'complete'` | Rose "Stalled" badge in STATUS column; STALLED tile count ≥ 1; "Stalled" badge on recruit page summary card | ✅ Verified |
+| S-3 | Per-step due date — upcoming | Step with `due_at` in future, incomplete | "Due [date]" chip in slate on recruit timeline | Pending — activate after migration push |
+| S-4 | Per-step due date — overdue | Step with `due_at` in past, incomplete | "Overdue · [date]" chip in rose on recruit timeline | ✅ Verified via Riley |
+| S-5 | Stalled filter in Command Center | 1 stalled cycle in DB | "Stalled" filter option shows only stalled recruits | Defined; verify |
+| S-6 | Cleared cycle not flagged as stalled | Cycle `status = 'cleared'`, one step has past `due_at` | Not shown as Stalled — cleared is terminal | Defined; verify |
+
+Note: S-3 shows nothing until the `get_registration` migration (`20260628000000_expose_due_at_in_get_registration.sql`) is pushed to the live DB. Until then, `due_at` is `null` on all RPC step responses and no due-date chips appear — intentional safe fallback.
+
 ---
 
 ### In-browser / Network-tab verification habit
@@ -134,4 +152,4 @@ As the surface area grows, the manual approach becomes too slow. The following a
 
 ---
 
-**Status: 🔄 In progress.** Critical path tests for Slice 1 verified. Clearance cases C-1 through C-4 verified for Slice 2. Remaining Slice 2 cases (C-5 through C-8, G-1 through G-6 except G-4/G-5, R-1/R-2/R-5) are defined and pending verification. No automated suite yet.
+**Status: 🔄 In progress.** Slice 1 critical path verified. Clearance cases C-1 through C-4 verified; C-5 through C-8, most G-series and R-series defined and pending. Stalled-status cases S-1, S-2, and S-4 verified with demo recruits (2026-06-28); S-3, S-5, S-6 defined and pending. No automated suite yet.

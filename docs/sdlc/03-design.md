@@ -115,11 +115,11 @@ Source of truth: `supabase/migrations/`. Column names are taken from applied mig
 - `name` text NOT NULL
 - `sort_order` int NOT NULL
 - `step_type` text (payment | external_confirm | acknowledgment | assessment | credential | attendance)
-- `cadence` text DEFAULT 'annual' (annual | biennial)
+- `cadence` text DEFAULT 'annual' (annual | biennial | one_time)
 - `required` boolean DEFAULT true
 - `prerequisite_step_id` uuid → `workflow_step(id)`
 - `completion_mode` text DEFAULT 'self_report' CHECK IN ('self_report','staff_verify')
-- `config` jsonb DEFAULT '{}' (pricing, external_url, thresholds, applies_to rules, distributed_by, etc.)
+- `config` jsonb DEFAULT '{}' (pricing, external_url, thresholds, applies_to rules, distributed_by, due policy, etc.)
 - `authority` text DEFAULT 'chapter' CHECK IN ('state','chapter')
 - `created_at` timestamptz
 
@@ -163,6 +163,8 @@ Note: there is no `magic_link_token` table. The recruit's token is `registration
 - **`required`** determines whether the step blocks clearance. An optional step (e.g., an informational orientation) can be present without being required.
 - **Member-type applicability** is encoded in the step's `config` jsonb (e.g., `config.required_for: ["new", "second_year", "IV", "V"]`). A step not applicable to the recruit's member type is hidden from their checklist and excluded from their clearance calculation. `applies_to` is not a separate column in the live DB.
 - **`authority`** (`state` vs. `chapter`) distinguishes state-mandated steps from chapter-controlled steps. This is displayed to the chapter admin so they understand which steps they can modify.
+- **Deadline policy** (`config.due`, added 2026-06-28): when a step has a deadline, it is encoded in `config` as `{type: "relative", days: N}` — N days from registration (used for chapter dues: `{type: "relative", days: 7}`) — or `{type: "fixed", date: "YYYY-MM-DD"}` for event-bound steps (camp, training, meetings) when the chapter schedules them. Steps without `config.due` have no deadline. At registration time, `start_registration` sets `step_completion.due_at` for relative-deadline steps; staff set `due_at` directly for fixed-date events. Most steps are deadline-free by design — credential and verification steps are chapter-driven, event steps get a deadline only when the chapter publishes the schedule.
+- **Stalled status** — a recruit is Stalled if any of their `step_completion` rows has `due_at < now()` and `status != 'complete'`. Computed live at query time from raw data; not a stored field. Replaces the prior 14-day inactivity heuristic. Command Center STATUS column shows a rose "Stalled" badge; recruit timeline shows a "Stalled" header indicator and per-step "Overdue · [date]" chip.
 
 A new chapter (NTBOA, FWBOA) onboards by seeding a set of `workflow_step` rows scoped to their `chapter_id`. No new code is required.
 
@@ -238,22 +240,38 @@ else:
 
 Thresholds: **70** = regular-season clearance; **90** = playoff clearance. State exam administered via ArbiterSports org **6577**; score entered into CrewCore via `complete_step`. Edge cases: no exam score recorded → `clearance = 'none'`; a step reversed → clearance recalculates from current records.
 
-### DBOA workflow seed (8 steps)
+### DBOA workflow (11 steps — expanded 2026-06-28)
 
-The DBOA chapter is seeded with 8 `workflow_step` rows defining their onboarding sequence. The authoritative seed is in the live database (applied directly during Slice 2). Exact step names and configurations:
+The DBOA chapter has 11 `workflow_step` rows. The workflow was expanded from 8 steps on 2026-06-28 — three new chapter steps added, steps reordered, background check moved up. **Reverify `sort_order` and new-step config in the live DB before relying on row numbers** (`SELECT name, sort_order, step_type, cadence, required, authority, prerequisite_step_id FROM workflow_step ORDER BY sort_order`).
 
-| # | Step name (exact) | Authority | Cadence | Required | Notes |
-|---|---|---|---|---|---|
-| 1 | Chapter application & dues | chapter | annual | Yes | DBOA-controlled; dues $125 new / $175 returning & transfer |
-| 2 | THSBOA state registration & dues | state | annual | Yes | Registered via ArbiterSports org 6577 |
-| 3 | Receive NFHS Rulebook & Case Book | state | annual | Yes | Physical or digital receipt |
-| 4 | Receive NFHS Mechanics Manual | state | **biennial** | Yes | Required every other year, not annually |
-| 5 | THSBOA state test | state | annual | Yes | Score entered via `complete_step`; ≥ 70 → regular clearance; ≥ 90 → playoff clearance; via ArbiterSports org 6577 |
-| 6 | Background check & abuse-prevention training | state | annual | Yes | Staff-verified |
-| 7 | DBOA training camp | chapter | **biennial** | Yes | DBOA-controlled; required every other year |
-| 8 | Required off-season training (new / 2nd-year / Div IV-V) | chapter | annual | **No** | Applies to new officials, 2nd-year officials, and those in divisions IV–V; not required for clearance |
+**Original 8 steps (config details verified):**
 
-Steps 2–6 are `authority = 'state'` — state-mandated; cannot be removed or waived by the DBOA chapter admin. Steps 1, 7, 8 are `authority = 'chapter'` — DBOA-controlled and configurable. Step 8 is the only step with `required = false`; it is present in the workflow for tracking but does not block clearance.
+| Step name (exact) | Authority | Cadence | Required | Notes |
+|---|---|---|---|---|
+| Chapter application & dues | chapter | annual | Yes | `config.due = {type:"relative", days:7}` — dues due 7 days after registration; $125 new / $175 returning & transfer; thedboa.com/join |
+| THSBOA state registration & dues | state | annual | Yes | Prereq: chapter dues; ArbiterSports org 6577; $70 new / $110 returning (eff. Jul 1); nonrefundable |
+| Background check & abuse-prevention training | state | annual | Yes | **Moved up** from original sort position 6; staff-verified; required_by THSBOA |
+| Receive NFHS Rulebook & Case Book | state | annual | Yes | Physical or digital receipt |
+| Receive NFHS Mechanics Manual | state | **biennial** | Yes | Distributed by `division_rep` |
+| THSBOA state test | state | annual | Yes | Prereq: mechanics manual; ≥ 70 → regular clearance; ≥ 90 → playoff; via ArbiterSports org 6577 |
+| DBOA training camp | chapter | **biennial** | Yes | Fee $75; 2026-07-17/18/19; deadline 2026-07-01; JotForm signup; no prerequisite |
+| Required off-season training (new / 2nd-year / Div IV-V) | chapter | annual | **No** | Applies to new/2nd-year/Div IV–V; Walnut Hill ILA |
+
+**3 new steps added 2026-06-28 (sort_order and full config pending DB verification):**
+
+| Step name (exact) | Authority | Cadence | Notes |
+|---|---|---|---|
+| Purchase uniform | chapter | one_time | Payment step; exact pricing config TBD |
+| DBOA new officials training | chapter | annual | Attendance step; exact schedule config TBD |
+| Attend 6 general session meetings | chapter | annual | Attendance step; `config.count_required = 6` |
+
+**Prerequisite / dependency graph (wired 2026-06-28):**
+- THSBOA state registration & dues requires Chapter application & dues (pay DBOA first)
+- THSBOA state test requires Receive NFHS Mechanics Manual (study manual first)
+- DBOA training camp — no prerequisite
+- All other step prereqs: verify in DB (`SELECT name, prerequisite_step_id FROM workflow_step`)
+
+State steps (`authority = 'state'`): THSBOA state registration & dues, Background check, Receive NFHS Rulebook, Receive NFHS Mechanics Manual, THSBOA state test — cannot be removed or waived by chapter admin. All others are `authority = 'chapter'`.
 
 ### UI architecture
 
@@ -288,6 +306,8 @@ Steps 2–6 are `authority = 'state'` — state-mandated; cannot be removed or w
 | 014 | CSS custom properties mirroring Tailwind tokens | CSS-based pages (`/r/:token`) and Tailwind pages (`/`, `/command`) share the same palette from one source |
 | 015 | Supabase Storage for chapter logos (`chapter-logos` bucket) | Avoids repo binary bloat; logo_url in `chapter` table enables runtime logo updates |
 | 016 | Pricing model: flat base + first-year success fee | Aligns CrewCore's revenue with chapter recruiting success; base covers the full roster |
+| 017 | Deadline policy encoded in `config.due` (relative vs. fixed) | Keeps `workflow_step` schema stable as deadline types evolve; relative deadlines (chapter dues: 7 days) and event deadlines (fixed date) use the same field; most steps stay deadline-free by design |
+| 018 | Stalled = any step's `due_at < now()` and `status != 'complete'` | Deterministic, data-driven definition tied to actual deadlines; replaces the 14-day inactivity heuristic which produced false positives when recruits were legitimately waiting on chapter staff |
 
 ---
 
@@ -308,4 +328,4 @@ Steps 2–6 are `authority = 'state'` — state-mandated; cannot be removed or w
 
 ---
 
-**Status: ✅ Complete for Slices 1–2.** The data model, security model, clearance algorithm, and ADRs 001–016 are decided and stable. Slice 3 will add a `payment` table or `dues_record` table and an additional RPC; those decisions will be documented as ADR-017+.
+**Status: ✅ Complete for Slices 1–2 (updated 2026-06-28).** Data model, security model, clearance algorithm, and ADRs 001–018 are decided and stable. Deadline policy (ADR-017) and stalled definition (ADR-018) added. DBOA workflow expanded to 11 steps. Slice 3 (Stripe dues) will add payment tables and additional RPCs; those decisions will be documented as ADR-019+.

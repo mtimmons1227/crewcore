@@ -80,6 +80,37 @@ These were applied after Slice 2 closed, outside the slice boundary; both now ha
 - **Chapter logo** — migration `20260627231447_add_chapter_logo_url.sql` ✅ applied. `chapter.logo_url` column added; Supabase Storage bucket `chapter-logos` created; `dboa-logo.png` uploaded; DBOA record updated. Logo renders in the Command Center header and the lead capture page dark header bar; falls back to text-only if `null`.
 - **Theme token consolidation** — `tailwind.config.js` expanded with `teal.*` color scale (values: navy/slate/blue, despite the `teal` naming), `shadow-card`, `shadow-hero`, `rounded-card`, `rounded-panel`; `styles.css` `:root` block with `--teal-*` CSS custom properties; all hardcoded hex values in CSS replaced with `var(--teal-*)` references. Lead capture page migrated from CSS class-based styling to Tailwind utilities.
 
+### Post-Slice-2 additions (2026-06-28)
+
+#### RecruitMenuPage — full restyle (three rounds, commits through `2b17430`)
+
+The recruit timeline `/r/:token` was rebuilt in three passes to match the Command Center design language exactly:
+
+1. **Theme + authority bug fix** — Converted from custom CSS to pure Tailwind. Fixed a bug where `get_registration` does not return `authority` — every step was rendering as DBOA chapter. Fix: after the RPC call, fetch `workflow_step(id, authority, prerequisite_step_id)` and merge onto steps by `step_id` (`mergeAuthorityData()` helper). Emerald = DBOA chapter, blue = THSBOA state; accent appears ONLY on the icon tile tint and authority chip. Removed 240-line dead CSS block from `styles.css`.
+2. **Structural restyle** — Dark `bg-slate-900` header with chapter logo (parallel-fetched alongside the authority data); three-tile stat row (Steps / First-year fees / Outcome) matching Command Center tile style; step icon tiles changed from circles-with-numbers to `rounded-xl` soft squares with step-type SVG line icons (shirt for uniform, pencil for assessment, graduation cap for training/camp, credit card for dues, clipboard-check for external confirm, shield for credential, users for meetings, book for acknowledgment). Connector, progress bar, and completed marker are neutral slate — no authority color on structural chrome.
+3. **Chip polish** — Cadence labels lowercase ("annual," "biennial," "one-time"); steps with `count_required` show "6 required" instead of "annual"; "If applicable" fallback tag for non-required steps without an audience; "unlocks after: [step name]" line powered by `prerequisite_step_id` data.
+
+#### Authority merge pattern
+
+`get_registration` (SQL `STABLE SECURITY DEFINER` function) does not include `authority` or `prerequisite_step_id` in its step output — those fields live on `workflow_step`, not `step_completion`. The `mergeAuthorityData()` async helper runs a parallel fetch of `workflow_step(id, authority, prerequisite_step_id)` after the RPC and merges onto the RPC steps by `step_id` match. Called once on initial load and again after `complete_step` refreshes. The Command Center does not need this merge — it queries `workflow_step` directly.
+
+#### Due-date stalled status (`CommandCenterPage.tsx` + `RecruitMenuPage.tsx`, commit `2b17430`)
+
+- **`StepCompletion` type** — added `due_at?: string | null`.
+- **Select query** — added `due_at` to `step_completion!cycle_id(id,workflow_step_id,status,completed_at,due_at)`.
+- **Stalled logic** — replaced 14-day inactivity heuristic with: cycle is Stalled if `cycle.status !== 'cleared'` AND any of its step completions has `due_at && status !== 'complete' && new Date(due_at) < now`. Applies to both the STALLED stat tile count and the per-row `isStalled` flag.
+- **Command Center STATUS badge** — changed from amber to rose for stalled cycles.
+- **Recruit page** — computes `isStalled`, `dueDate`, `isOverdue`, `dueDateStr` per step. Shows "Stalled" rose badge near the summary card header when any step is overdue; per-step "Due [date]" chip (slate) or "Overdue · [date]" chip (rose) in the tag row.
+- **Migration** `20260628000000_expose_due_at_in_get_registration.sql` committed — adds `'due_at', sc.due_at` to the `get_registration` step `jsonb_build_object`. **Not yet pushed to live DB** — run `npx supabase db push --project-ref nfcmesyfijtnrsdhypqn` to activate.
+
+#### DBOA workflow expansion (direct DB change — seed/migration pending)
+
+Three new `workflow_step` rows added to the DBOA chapter, steps reordered, background check moved up. Changes applied directly to the live DB; a migration file to capture the new state is pending. Verify current state: `SELECT name, sort_order, step_type, cadence, required, authority FROM workflow_step ORDER BY sort_order`.
+
+New steps: **Purchase uniform** (payment, chapter, one_time), **DBOA new officials training** (attendance, chapter, annual), **Attend 6 general session meetings** (attendance, chapter, annual, `count_required: 6`).
+
+Prerequisite graph wired: THSBOA state registration requires chapter dues; state test requires mechanics manual; training camp has no prerequisite.
+
 ### The runtime-defect lesson
 
 During Slice 2, a class of bugs appeared that TypeScript and `vite build` did not catch: **400 errors from wrong table or column names at runtime.** The Supabase client is dynamically typed at the query level — a `.from('registration_cycles')` (plural, wrong) compiles and builds cleanly but returns a 400 at runtime because the table is named `registration_cycle` (singular). Similarly, a column reference to `.select('clearance_status')` when the column is named `clearance_level` fails silently in TypeScript but loudly at runtime.
@@ -124,4 +155,4 @@ The database is the source of truth. All schema changes go through SQL migration
 
 ---
 
-**Status: 🔄 In progress.** Slices 1–2 done and pushed to `origin/main`. All 11 migrations applied to `nfcmesyfijtnrsdhypqn`; no schema drift. Slice 3 (Dues/Stripe) begins after board validation of the pricing model.
+**Status: 🔄 In progress.** Slices 1–2 done and pushed to `origin/main`. Post-Slice-2 (2026-06-28): RecruitMenuPage fully restyled with authority-merge fix; due-date stalled status on both Command Center and recruit page; DBOA workflow expanded to 11 steps via direct DB change. **Pending:** push migration `20260628000000_expose_due_at_in_get_registration.sql` to live DB; capture workflow expansion as a migration file. Slice 3 (Stripe dues auto-payment) scoped and gated on board demo.

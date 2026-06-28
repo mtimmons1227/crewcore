@@ -6,13 +6,13 @@
 Capture what's planned but not yet built — within CrewCore Recruit and across the wider ecosystem — so "planned" is never claimed as "shipped."
 
 ## What is built today (for contrast)
-**CrewCore Recruit, Slice 1 only:** the core schema with RLS + DBOA seed, and a chapter-branded public lead-capture form submitting via `public.submit_lead`. Everything below is planned.
+**CrewCore Recruit, Slices 1 & 2 (as of 2026-06-28):** full schema with RLS; DBOA 11-step workflow with full prerequisite graph and deadline policy; public lead-capture form (`/`); recruit magic-link timeline (`/r/:token`) with authority colors, due-date chips, and stalled indicator; staff Command Center (`/command`) with recruit roster, detail panel, due-date-based stalled detection, and rose Stalled badge. Everything below is planned or scoped-not-built.
 
 ## Planned — within CrewCore Recruit
-1. **Recruiter Command Center** (`/command`) — the next build: authenticated console for recruiters/chapter admins to manage incoming interest.
-2. **Slice 2 — Onboarding:** onboarding steps, lead status tracking, recruit magic-link status page.
-3. **Slice 3 — Compliance:** compliance rollup, division-rep distribution view.
-4. **Slice 4 — AI features (not built):** lead scoring, drop-off prediction — and per the brief, also chapter-routing recommendations, campaign drafting, and readiness summaries. Use AI only where it adds practical value.
+1. ✅ **Recruiter Command Center** (`/command`) — shipped in Slice 1.
+2. ✅ **Slice 2 — Registration / clearance / timeline** — shipped: recruit magic-link page, tiered clearance engine, Command Center roster with detail panel.
+3. **Slice 3 — Stripe auto-payment (scoped, not built):** recruit pays chapter dues on their `/r/:token` page via Stripe Checkout → Stripe webhook fires → Supabase Edge Function validates and marks the chapter-dues `step_completion` row complete (replacing manual staff verification). This puts CrewCore in the payment path, makes the 10% success fee auto-enforceable, and is the recurring-revenue rail. Gated on board demo reaction. Implementation will require a `payment` or `dues_record` table and an Edge Function (ADR-019+).
+4. **Slice 4 — AI features:** lead scoring, drop-off prediction, chapter-routing recommendations, campaign drafting, readiness summaries. Begin after Slice 3; use AI only where it adds practical value.
 5. **Slice 5 — Chapter admin config:** a workflow builder so **NTBOA** and **FWBOA** onboard via configuration, not new code.
 
 ## Planned — the wider ecosystem (other modules)
@@ -74,13 +74,24 @@ Tracks what we have claimed so others can verify the current state without guess
 | Monetization model | **Decided** (pending board validation) | CrewCore standalone: $5/official/yr ($4 DBOA) + 10% first-year dues (new + transfer) |
 | CrowdIQ pricing | Framework only | Ad spend + management + margin; not finalized |
 | Command Center (Slice 1) | Shipped | Verified end-to-end |
-| Detail panel / restyle (Slice 2) | Shipped | Committed and pushed to main |
-| Compliance rollup (Slice 3) | Planned | Next build target |
+| Registration / clearance / recruit timeline (Slice 2) | Shipped | Committed and pushed to main |
+| RecruitMenuPage full restyle | Shipped | Navy theme, step-type icons, authority colors, due dates, stalled badge |
+| Due-date stalled status (Command Center + recruit page) | Shipped | Rose Stalled badge; replaces 14-day inactivity heuristic |
+| DBOA 11-step workflow | In DB (catch-up migration pending) | 3 new steps + reorder + prereq graph applied directly; migration file to capture state is pending |
+| `get_registration` migration (expose `due_at`) | Committed, not pushed | Run `npx supabase db push --project-ref nfcmesyfijtnrsdhypqn` to activate |
+| Demo recruits (Jordan Sample, Riley Stalled) | In live DB | Remove after board demo |
+| Stripe auto-payment (Slice 3) | Scoped | Checkout → webhook → Edge Function → auto-complete dues; not yet built |
 | AI features (Slice 4) | Planned | Not started |
 | Chapter admin config (Slice 5) | Planned | Not started |
 | Exchange / Academy / Payouts / Insights | Planned | Not started |
 
 ---
+
+## Pending catch-up work (as of 2026-06-28)
+
+- **Push `get_registration` migration**: `20260628000000_expose_due_at_in_get_registration.sql` is committed to the repo but not yet applied to the live DB. Run `npx supabase db push --project-ref nfcmesyfijtnrsdhypqn`. Until this runs, `due_at` is `null` on all RPC step responses and no per-step due-date chips appear (safe no-op fallback).
+- **Workflow expansion migration**: the DBOA workflow was expanded to 11 steps via direct DB change (3 new steps + reorder + prereq graph). No migration file captures this yet — either author one from the live DB state or confirm it landed in an existing migration. Verify: `SELECT name, sort_order, step_type, cadence, required, authority, prerequisite_step_id FROM workflow_step ORDER BY sort_order`.
+- **Demo recruit cleanup**: remove "Jordan Sample (demo)" and "Riley Stalled (demo)" from the live DB after the board demo.
 
 ## Documentation debt to clear
 - **ADR-001 (shared multi-tenant identity)** currently contains only a placeholder PowerShell command, not the decision text — restore the actual ADR content.
