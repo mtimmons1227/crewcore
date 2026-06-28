@@ -13,6 +13,81 @@
 
 ---
 
+## 2026-06-27 — End-of-day wrap: pricing, logo, theme, board prep
+
+### What shipped / decided
+
+**Pricing model — finalized (pending board validation)**
+
+- Standard base: **$5 / official / year**; DBOA founding rate: **$4 / official / year**
+- **+ 10% success fee, first year only** — any official in their first year with the chapter (new *or* transfer), applied to dues they actually pay; converts to the $5 base in year two
+- Calendar-year cutoff: **December 31** — roster count and first-year status both use a Dec-31 snapshot
+- **Base reframed:** the per-official base is a whole-roster, year-round onboarding fee — CrewCore walks every official (new and veteran) through onboarding and clearance each season. This framing also defuses the "why charge on veterans" objection: veterans are in the platform too, not just recruits.
+- Pricing at parity with RefTown (~$5/official); distinction is CrewCore is a **profit center**, RefTown is a cost center.
+
+**Real DBOA dues (2026–27 registration form), nonrefundable:**
+
+| Member type | Dues |
+|---|---|
+| New | $125 |
+| Returning (eff. Apr 1) | $175 |
+| Returning-from-inactive | $175 |
+| Transfer | $175 |
+
+Officials register in RefTown as part of CrewCore onboarding (RefTown is DBOA's assignment platform).
+
+**DBOA estimate:** ~300 officials × $4 = $1,200 base; example 60 new × $125 × 10% = $750 success fee; heavy year ~$1,950, steady state ~$1,200.
+
+Updated in: `docs/sdlc/08-future-releases.md` and `docs/strategy/competitive-brief.md`.
+
+---
+
+**DBOA logo**
+
+- Hosted in Supabase Storage bucket **`chapter-logos`** as `dboa-logo.png`
+- `chapter.logo_url` column added to the `chapter` table and set for the DBOA record
+- Logo renders in the **Command Center** header (left of "CrewCore — DBOA" title) and on the **lead capture page** header — falls back to text-only if `logo_url` is null, so other chapters without a logo still work correctly
+
+---
+
+**Theme consolidation (commit `67eb63d`) — structural work done, palette swap pending**
+
+- `tailwind.config.js`: shared `teal.*` token scale + `shadow-card/hero/soft` + `rounded-card` (28px) / `rounded-panel` (24px)
+- `styles.css`: CSS custom properties (`--teal-*`, `--surface-*`, `--shadow-*`) mirror the Tailwind tokens; all hardcoded hex/rgba values replaced with `var()` references — one edit to `:root` re-skins both public pages
+- `src/components/ui.tsx`: shared `<Card>` component used by the Command Center
+- **BUT:** the shared palette was initially set to **teal/green** (the old public-page theme). The palette has since been swapped to the Command Center's navy/slate/blue values — `--teal-500` is now `#3b7cc4` (EarnedHome medium blue), dark text is slate-900, surface backgrounds are slate-50/100. Commit `48540fb` covers the palette flip.
+- **Lead page status:** migrated to Tailwind + slate theme (commit `4081e52`). Currently shows the EarnedHome navy header + white Card form — matches the Command Center design language. The teal-green theme is gone from `/`.
+- **Recruit timeline (`/r/:token`):** still uses `styles.css` CSS classes; those now resolve to the navy/blue tokens via the CSS vars. Visual re-skin happens automatically from the token swap — no TSX changes needed unless a full Tailwind migration is desired later.
+
+---
+
+**Board materials generated (outside this repo)**
+
+- Branded one-pager PDF (CrewCore Recruit pitch)
+- Founding-chapter agreement PDF
+- Both have `[your email]` placeholder still to fill before sending
+- Taking these + a live demo to the DBOA board is the **highest-value next move**
+
+---
+
+### Open items — ranked by priority
+
+1. **Board meeting** — present pricing, one-pager, and founding-chapter agreement to DBOA board. Board reaction gates everything below.
+2. **Slice 3 — Dues (Stripe)** — the next build once board approves. This is what makes the 10% success fee automatically attributable and collectible.
+3. **Staff login page** — currently a functional gate (email + password form inside the Command Center page). Deserves a dedicated, polished `/login` route before any external staff onboarding.
+4. **Lead page + recruit timeline navy restyle** — lead page is done; recruit timeline (`/r/:token`) inherits the navy tokens via CSS vars but has not been visually verified post-swap. Confirm it looks correct before the board demo.
+5. **`workflow_step.authority` migration** — the column was applied directly to the live DB. Drop the SQL file into `supabase/migrations/` to keep the schema tracked. File name suggestion: `20260627_000000_add_workflow_step_authority.sql`.
+6. **Fill board-material placeholders** — replace `[your email]` in both PDFs before distributing.
+
+### Standing gotchas (unchanged)
+
+- Supabase free tier pauses after ~1 week of inactivity — resume at supabase.com/dashboard before any dev session.
+- Never `db reset` or `db push` on the live project.
+- No automated tests — RLS bugs and schema drift only surface at runtime. Always verify on the live DB after a schema change.
+- `workflow_step` table has no migration file in repo — do not drop/recreate without a manual backup.
+
+---
+
 ## 2026-06-27 — Pricing model revised ($5 base / $4 DBOA)
 
 ### What changed
