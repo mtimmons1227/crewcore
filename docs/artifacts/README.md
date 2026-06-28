@@ -19,12 +19,15 @@ CrewCore keeps its working docs under `docs/product`, `docs/architecture`, `docs
 - [`../decisions/ADR-001-shared-multitenant-identity.md`](../decisions/ADR-001-shared-multitenant-identity.md) — multi-tenant identity ADR. *Decision text is a placeholder — needs restoring.*
 
 ## Phase 3 — Design
-- [`../architecture/CrewCore-Recruit-Data-Model.md`](../architecture/CrewCore-Recruit-Data-Model.md) — data model as designed.
+- [`../architecture/CrewCore-Recruit-Data-Model.md`](../architecture/CrewCore-Recruit-Data-Model.md) — data model as designed (Slice 1 baseline; 03-design.md has the Slice 2 additions).
 - [`../architecture/CrewCore-Recruit-UI-Architecture.md`](../architecture/CrewCore-Recruit-UI-Architecture.md) — UI architecture (primary).
 - [`../architecture/UI-Architecture.md`](../architecture/UI-Architecture.md) — earlier UI architecture draft (kept for reference; superseded by the above).
-- [`../CrewCore-Deferred-Design-Register.md`](../CrewCore-Deferred-Design-Register.md) — intentionally deferred design decisions (chapter workflow config, assessment gating, magic-link expiry, dropout funnel). Revisit per slice.
-- `../../supabase/migrations/*` — schema + RLS as applied to the live database.
-- **AI design reference deliverables** (in repo root, not committed to docs/): `CrewCore_AI_Component_Reference_Guide_split_fixed_v2.docx`, `CrewCore_Decision_Owner_Workflow_Reference.docx`.
+- [`../CrewCore-Deferred-Design-Register.md`](../CrewCore-Deferred-Design-Register.md) — intentionally deferred design decisions. Revisit per slice.
+- `../../supabase/migrations/*` — schema + RLS as applied to the live database (authoritative).
+- `../../apps/web/tailwind.config.js`, `../../apps/web/src/styles.css` — theme tokens (EarnedHome navy/slate/blue palette). Update both together when changing the palette.
+- `../../apps/web/src/components/ui.tsx` — shared `<Card>` component.
+- **ADRs 001–016** documented in [`../sdlc/03-design.md`](../sdlc/03-design.md).
+- **AI design reference deliverables** (in repo root): `CrewCore_AI_Component_Reference_Guide_split_fixed_v2.docx`, `CrewCore_Decision_Owner_Workflow_Reference.docx`.
 
 ## Phase 4 — Implementation
 - `../../supabase/migrations/*.sql` — all applied migrations (Slice 1 + Slice 2).
