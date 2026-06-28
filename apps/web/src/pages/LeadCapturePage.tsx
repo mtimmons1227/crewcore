@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { Card } from '../components/ui';
 
 type ChapterRow = {
   id: string;
@@ -37,6 +38,12 @@ type LeadFormState = {
 const DBOA_CHAPTER_SLUG = 'DBOA';
 const BASKETBALL_SPORT_NAME = 'Basketball';
 
+const inputCls =
+  'w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400';
+const labelCls = 'mb-4 block text-sm font-semibold text-slate-700';
+const primaryBtn =
+  'w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70';
+
 export default function LeadCapturePage() {
   const [chapter, setChapter] = useState<ChapterRow | null>(null);
   const [sport, setSport] = useState<SportRow | null>(null);
@@ -45,7 +52,6 @@ export default function LeadCapturePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [registrationLoading, setRegistrationLoading] = useState(false);
 
@@ -61,9 +67,7 @@ export default function LeadCapturePage() {
         .single();
 
       const chapterData = chapterResult.data as ChapterRow | null;
-      const chapterError = chapterResult.error;
-
-      if (chapterError || !chapterData) {
+      if (chapterResult.error || !chapterData) {
         setError('Unable to load chapter information.');
         setLoading(false);
         return;
@@ -76,9 +80,7 @@ export default function LeadCapturePage() {
         .single();
 
       const sportData = sportResult.data as SportRow | null;
-      const sportError = sportResult.error;
-
-      if (sportError || !sportData) {
+      if (sportResult.error || !sportData) {
         setError('Unable to load sport information.');
         setLoading(false);
         return;
@@ -86,46 +88,29 @@ export default function LeadCapturePage() {
 
       const workflowResult = await supabase
         .from('workflow_step')
-        .select(
-          'id,name,sort_order,step_type,cadence,required,completion_mode,config,prerequisite_step_id',
-        )
+        .select('id,name,sort_order,step_type,cadence,required,completion_mode,config,prerequisite_step_id')
         .eq('chapter_id', chapterData.id)
         .eq('sport_id', sportData.id)
         .order('sort_order', { ascending: true });
 
-      const workflowData = workflowResult.data as WorkflowStep[] | null;
-      const workflowError = workflowResult.error;
-
-      if (workflowError) {
-        setError('Unable to load the registration preview.');
-      }
+      if (workflowResult.error) setError('Unable to load the registration preview.');
 
       setChapter(chapterData);
       setSport(sportData);
-      setSteps(workflowData ?? []);
+      setSteps((workflowResult.data as WorkflowStep[]) ?? []);
       setLoading(false);
     }
 
     const storedToken = window.localStorage.getItem('recruit_registration_token');
-    if (storedToken) {
-      setToken(storedToken);
-    }
+    if (storedToken) window.location.href = `/r/${storedToken}`;
 
     loadData();
   }, []);
 
-  const accentStyle = useMemo(
-    () => ({
-      '--accent': chapter?.accent_color ?? '#009688',
-    } as React.CSSProperties),
-    [chapter],
-  );
-
   const isFormValid = form.fullName.trim() && form.phone.trim() && form.email.trim();
 
-  const handleChange = (key: keyof LeadFormState, value: string) => {
-    setForm((current) => ({ ...current, [key]: value }));
-  };
+  const handleChange = (key: keyof LeadFormState, value: string) =>
+    setForm((cur) => ({ ...cur, [key]: value }));
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -171,113 +156,162 @@ export default function LeadCapturePage() {
 
     const registrationToken = data as string;
     window.localStorage.setItem('recruit_registration_token', registrationToken);
-    setToken(registrationToken);
     window.location.href = `/r/${registrationToken}`;
   };
 
-  return (
-    <div className="hero" style={accentStyle}>
-      <div className="hero-badge">DBOA Recruiting</div>
-      {chapter?.logo_url ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+  const chapterName = chapter?.name ?? 'DBOA';
+
+  const header = (
+    <header className="rounded-panel bg-slate-900 px-5 py-4 text-white shadow-soft sm:px-6">
+      <div className="flex items-center gap-3">
+        {chapter?.logo_url ? (
           <img
             src={chapter.logo_url}
-            alt={`${chapter.name} logo`}
-            style={{ height: '44px', maxHeight: '48px', width: 'auto', borderRadius: '8px', objectFit: 'contain', flexShrink: 0 }}
+            alt={`${chapterName} logo`}
+            className="h-11 w-auto shrink-0 rounded-lg object-contain"
           />
-          <h1 style={{ margin: 0 }}>{chapter.name} is looking for new officials</h1>
+        ) : null}
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
+            CrewCore Recruit
+          </div>
+          <div className="text-xl font-semibold">{chapterName}</div>
+          <div className="mt-1 text-sm text-slate-400">
+            {chapter?.tagline ?? 'Start your officiating journey'}
+          </div>
         </div>
-      ) : (
-        <h1>{chapter?.name ?? 'DBOA'} is looking for new officials</h1>
-      )}
-      <p>{chapter?.tagline ?? 'Start officiating basketball with a chapter-led onboarding path.'}</p>
-      <div className="progress-pill">Step 1 of 1 — quick interest form</div>
+      </div>
+    </header>
+  );
+
+  return (
+    <div>
+      {header}
 
       {loading ? (
-        <section className="card status-card">
-          <p>Loading chapter info...</p>
-        </section>
-      ) : error ? (
-        <section className="card status-card error-card">
-          <p>{error}</p>
-        </section>
+        <Card className="mt-6 p-6">
+          <p className="text-sm text-slate-500">Loading chapter info…</p>
+        </Card>
+      ) : error && !submitted ? (
+        <Card className="mt-6 p-6">
+          <p className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {error}
+          </p>
+        </Card>
       ) : submitted ? (
         <>
-          <section className="card success-card">
-            <h2>Thank you, {form.fullName.split(' ')[0] ?? 'there'}!</h2>
-            <p>Your interest has been sent to DBOA. A recruiter will reach out soon with next steps.</p>
-            <p className="microcopy">If you want to review your info, refresh the page to submit another lead.</p>
-          </section>
+          <Card className="mt-6 p-6">
+            <h2 className="text-xl font-semibold text-slate-900">
+              Thank you, {form.fullName.split(' ')[0] ?? 'there'}!
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Your interest has been sent to {chapterName}. A recruiter will reach out soon with next steps.
+            </p>
+          </Card>
 
-          <section className="card">
-            <h3>What to expect next</h3>
-            <p className="microcopy">This is the self-serve recruit journey for DBOA Basketball.</p>
+          <Card className="mt-4 p-6">
+            <h3 className="text-lg font-semibold text-slate-900">What to expect next</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Self-serve registration journey for {chapterName} Basketball.
+            </p>
             {steps.length > 0 ? (
-              <ol className="workflow-list">
-                {steps.map((step) => (
-                  <li key={step.id}>
-                    <strong>{step.name}</strong>
-                    {step.description ? <p>{step.description}</p> : null}
+              <ol className="mt-4 space-y-2">
+                {steps.map((step, i) => (
+                  <li
+                    key={step.id}
+                    className="flex gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
+                  >
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+                      {i + 1}
+                    </span>
+                    <div>
+                      <div className="font-semibold text-slate-900">{step.name}</div>
+                      {step.description ? (
+                        <div className="mt-0.5 text-slate-500">{step.description}</div>
+                      ) : null}
+                    </div>
                   </li>
                 ))}
               </ol>
-            ) : (
-              <p className="microcopy">Loading the registration journey…</p>
-            )}
-            <div className="cta-row">
-              <button type="button" onClick={handleStartRegistration} disabled={registrationLoading}>
+            ) : null}
+            <div className="mt-5">
+              <button
+                type="button"
+                onClick={handleStartRegistration}
+                disabled={registrationLoading}
+                className={primaryBtn}
+              >
                 {registrationLoading ? 'Starting registration…' : 'Start my registration'}
               </button>
             </div>
-          </section>
+          </Card>
         </>
       ) : (
-        <form className="card form-card" onSubmit={handleSubmit}>
-          <div className="form-step">
-            <p className="step-label">Tell us who you are</p>
-            <label>
-              Full name
+        <Card className="mt-6 p-6">
+          <div className="mb-5">
+            <h2 className="text-xl font-semibold text-slate-900">Express your interest</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Quick interest form — {chapterName} will follow up with next steps.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <label className={labelCls}>
+              <span className="mb-2 block">Full name</span>
               <input
                 type="text"
                 value={form.fullName}
-                onChange={(event) => handleChange('fullName', event.target.value)}
+                onChange={(e) => handleChange('fullName', e.target.value)}
                 placeholder="Jane Doe"
                 required
+                className={inputCls}
               />
             </label>
-            <label>
-              Phone number
+
+            <label className={labelCls}>
+              <span className="mb-2 block">Phone number</span>
               <input
                 type="tel"
                 value={form.phone}
-                onChange={(event) => handleChange('phone', event.target.value)}
+                onChange={(e) => handleChange('phone', e.target.value)}
                 placeholder="(555) 123-4567"
                 required
+                className={inputCls}
               />
             </label>
-            <label>
-              Email address
+
+            <label className={labelCls}>
+              <span className="mb-2 block">Email address</span>
               <input
                 type="email"
                 value={form.email}
-                onChange={(event) => handleChange('email', event.target.value)}
+                onChange={(e) => handleChange('email', e.target.value)}
                 placeholder="you@example.com"
                 required
+                className={inputCls}
               />
             </label>
-          </div>
 
-          <div className="cta-row">
-            <button type="submit" disabled={!isFormValid || saving}>
-              {saving ? 'Sending...' : 'Send interest'}
-            </button>
-            <span className="sport-chip">Sport: {sport?.name ?? 'Basketball'}</span>
-          </div>
+            {error ? (
+              <p className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                {error}
+              </p>
+            ) : null}
 
-          <p className="microcopy">
-            This is a no-account form. DBOA will only use your contact info to follow up about officiating.
-          </p>
-        </form>
+            <div className="mt-5 flex items-center gap-3">
+              <button type="submit" disabled={!isFormValid || saving} className={primaryBtn}>
+                {saving ? 'Sending…' : 'Send interest'}
+              </button>
+              <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                {sport?.name ?? 'Basketball'}
+              </span>
+            </div>
+
+            <p className="mt-4 text-xs text-slate-400">
+              No account needed. {chapterName} will only use your contact info to follow up about officiating.
+            </p>
+          </form>
+        </Card>
       )}
     </div>
   );
