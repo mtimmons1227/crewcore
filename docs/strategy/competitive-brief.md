@@ -90,28 +90,34 @@ No existing software product owns this problem.
 
 ## Monetization — DECIDED (pending board validation)
 
-**Decision date:** 2026-06-27. Pending board validation before external commitment.
+**Decision date:** 2026-06-27. Updated 2026-06-27. Pending board validation before external commitment.
 
 ### CrewCore software (standalone)
-- **$4 per official per year** — flat base, all officials in the chapter
-- **$3 founding-chapter rate** — DBOA only, locked in at launch
-- **+ 10% of new-official dues, first year only** — for each official in the calendar year they join; converts to the $4 flat base in year two
-- **Calendar-year cutoff: December 31** — roster count and "new recruit" determination both use a Dec-31 snapshot
+- **$5 per official per year** — flat base, all officials on the roster
+- **$4 founding/test rate** — DBOA only, locked in at launch
+- **+ 10% success fee, first year only** — applies to any official in their first year with the chapter (new *or* transfer), on the dues they actually pay; converts to the $5 base in year two
+- **Calendar-year cutoff: December 31** — roster count and first-year determination both use a Dec-31 snapshot
 
-**Billing:** Annual invoice off the Dec-31 roster. The 10% applies per new official (their first year); subsequent years those officials fold into the $4 base count.
+**Billing:** Annual invoice off the Dec-31 roster. The 10% applies per first-year official (new or transfer) on that year's invoice, based on dues actually paid. Subsequent years those officials fold into the $5 base count.
 
 **Enforcement:** Invoice-based until Slice 3 (Stripe dues) puts CrewCore in the payment path, at which point the 10% becomes automatically attributable and collectible.
 
+### Base-fee rationale
+The per-official base is a whole-roster, year-round platform fee — CrewCore walks every official (new and veteran) through onboarding and clearance each season, and it is each new official's first experience with the chapter. This justifies charging per official across the full roster, not just new recruits. Pricing is at parity with RefTown (~$5/official to schedule); the distinction is that RefTown is a cost center and CrewCore is a profit center.
+
+### Real DBOA dues (2026–27)
+Officials register in RefTown as part of onboarding. Dues are nonrefundable: New $125 · Returning $175 (eff. Apr 1) · Returning-from-inactive $175 · Transfer $175.
+
+### DBOA estimate
+~300 officials × $4 base = $1,200 / year. Example success fee: 60 new officials × $125 × 10% = $750. Heavy year ~$1,950; steady state ~$1,200.
+
 ### CrowdIQ / managed recruiting (separate)
-CrowdIQ is a **separate premium service**, not bundled with the $4 base:
+CrowdIQ is a **separate premium service**, not bundled with the $5 base:
 - Priced on ad spend + management fee + margin
 - Per-engagement, not per official
 - Pricing framework only — not finalized
 
-### Value framing
-RefTown costs ~$5/official to schedule (a cost center). CrewCore is a profit center: ~$150 in first-year dues per new official recruited makes $4 + 10%-year-one value-justified at the chapter level.
-
-**Claims ledger status:** Monetization model — decided (CrewCore standalone $4 + 10% year-one), pending board validation; CrowdIQ pricing — framework only. See the full claims ledger in [`docs/sdlc/08-future-releases.md`](../sdlc/08-future-releases.md).
+**Claims ledger status:** Monetization model — decided ($5 base / $4 DBOA + 10% first-year dues, new + transfer), pending board validation; CrowdIQ pricing — framework only. See the full claims ledger in [`docs/sdlc/08-future-releases.md`](../sdlc/08-future-releases.md).
 
 ---
 

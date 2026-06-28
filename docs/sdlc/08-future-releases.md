@@ -27,13 +27,32 @@ Beyond Recruit, CrewCore is designed as a five-module ecosystem. Not yet built:
 **Status:** Decision made by product team. Pending board validation before external commitment. Do not publish externally until board sign-off.
 
 ### CrewCore software pricing (standalone)
-- **$4 per official per year** — flat base, all officials
-- **$3 founding-chapter rate** — DBOA only, locked in at launch
-- **+ 10% of new-official dues, first year only** — applies to each new official in the calendar year they join; converts to the $4 flat base in year two and beyond
-- **Calendar-year cutoff: December 31** — both the annual roster count and "new recruit" determination use a Dec-31 snapshot; recruits captured after Dec 31 count toward the following year
+- **$5 per official per year** — flat base, all officials on the roster
+- **$4 founding/test rate** — DBOA only, locked in at launch
+- **+ 10% success fee, first year only** — applies to any official in their first year with the chapter (new *or* transfer), on the dues they actually pay; they convert to the $5 base in year two and beyond
+- **Calendar-year cutoff: December 31** — both the annual roster count and first-year determination use a Dec-31 snapshot; officials joining after Dec 31 roll into the following year
+
+### Base-fee rationale
+The per-official base is a whole-roster, year-round platform fee. CrewCore walks every official — new and veteran — through onboarding and clearance each season, and it is each new official's first experience with the chapter. This justifies charging per official across the full roster, not just new recruits. Pricing is at parity with RefTown (~$5/official to schedule); the difference is that RefTown is a cost center, CrewCore is a profit center.
+
+### Real DBOA dues (2026–27 registration)
+Officials register in RefTown as part of onboarding. Dues are nonrefundable.
+
+| Member type | Dues |
+|---|---|
+| New | $125 |
+| Returning (effective Apr 1) | $175 |
+| Returning-from-inactive | $175 |
+| Transfer | $175 |
+
+### DBOA estimate
+- **Base:** ~300 officials × $4 = **$1,200 / year**
+- **Success fee example:** 60 new officials × $125 × 10% = **$750**
+- **Heavy recruiting year:** ~$1,950 total
+- **Steady state (few new recruits):** ~$1,200
 
 ### Billing mechanics
-Annual invoice issued off the Dec-31 roster snapshot. The 10% applies per new official on that year's invoice (their first year as an official). Subsequent years those officials appear only in the $4 base count.
+Annual invoice issued off the Dec-31 roster snapshot. The 10% success fee applies per first-year official (new or transfer) on that year's invoice, calculated against the dues they actually paid. Subsequent years those officials appear only in the $5 base count.
 
 ### Enforcement path
 The 10% is invoice-based until **Slice 3 (Stripe dues integration)** puts CrewCore in the payment path — at which point it becomes automatically attributable and collectible.
@@ -44,9 +63,6 @@ CrowdIQ (AI-managed recruiting campaigns) is a **separate premium service**, not
 - Priced per engagement, not per official
 - Pricing framework only — not finalized
 
-### Value framing (for the record)
-RefTown costs ~$5/official to schedule (a pure cost center). CrewCore is a profit center: an average new official generates ~$150 in first-year dues, making $4 + 10%-year-one value-justified at the chapter level even before Exchange/Payouts revenue.
-
 ---
 
 ## Claims ledger
@@ -55,7 +71,7 @@ Tracks what we have claimed so others can verify the current state without guess
 
 | Claim | Status | Notes |
 |---|---|---|
-| Monetization model | **Decided** (pending board validation) | CrewCore standalone: $4/official/yr + 10% new-official dues year-one; $3 founding rate for DBOA |
+| Monetization model | **Decided** (pending board validation) | CrewCore standalone: $5/official/yr ($4 DBOA) + 10% first-year dues (new + transfer) |
 | CrowdIQ pricing | Framework only | Ad spend + management + margin; not finalized |
 | Command Center (Slice 1) | Shipped | Verified end-to-end |
 | Detail panel / restyle (Slice 2) | Shipped | Committed and pushed to main |

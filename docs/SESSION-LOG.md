@@ -13,6 +13,50 @@
 
 ---
 
+## 2026-06-27 — Pricing model revised ($5 base / $4 DBOA)
+
+### What changed
+
+**Pricing update — still decided, still pending board validation**
+
+Revised from the earlier ($4/$3) model. Changes:
+
+| Item | Prior | Updated |
+|---|---|---|
+| Standard base | $4 / official / yr | **$5 / official / yr** |
+| DBOA founding rate | $3 / official / yr | **$4 / official / yr** |
+| 10% success fee scope | New officials only | **New + transfer, first year** |
+| 10% basis | "new-official dues" (est. ~$150) | **Dues they actually pay** (real DBOA dues below) |
+
+**Real DBOA dues (2026–27 registration, nonrefundable):**
+- New: $125
+- Returning (eff. Apr 1): $175
+- Returning-from-inactive: $175
+- Transfer: $175
+
+Officials register in RefTown as part of CrewCore onboarding.
+
+**Base-fee rationale added to record:** The per-official base is a whole-roster, year-round platform fee — CrewCore walks every official (new and veteran) through onboarding and clearance each season. This justifies charging per official across the full roster, not just new recruits. Pricing is at parity with RefTown (~$5/official to schedule); the difference is CrewCore is a profit center, not a cost center.
+
+**DBOA estimate:**
+- Base: ~300 × $4 = $1,200 / year
+- Success fee (example): 60 new officials × $125 × 10% = $750
+- Heavy recruiting year: ~$1,950 total
+- Steady state: ~$1,200
+
+**Documents updated:**
+- `docs/sdlc/08-future-releases.md` — pricing section + claims ledger
+- `docs/strategy/competitive-brief.md` — monetization section
+
+### What did not change
+
+- 10% is still first-year-only, still invoice-based until Slice 3
+- Calendar-year Dec-31 cutoff unchanged
+- CrowdIQ remains a separate service (framework only)
+- All code and database unchanged
+
+---
+
 ## 2026-06-27 — Pricing model finalized
 
 ### What changed
