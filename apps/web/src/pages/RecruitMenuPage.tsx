@@ -45,6 +45,7 @@ type RegistrationStep = {
   required: boolean;
   sort_order: number;
   completed_at: string | null;
+  due_at?: string | null;
   evidence_url: string | null;
   data: Record<string, unknown>;
   config: StepConfig | null;
@@ -509,6 +510,9 @@ export default function RecruitMenuPage() {
   const sortedSteps = steps.slice().sort((a, b) => a.sort_order - b.sort_order);
   const completedCount = sortedSteps.filter((s) => s.status === 'complete').length;
   const progressPct = sortedSteps.length > 0 ? Math.round((completedCount / sortedSteps.length) * 100) : 0;
+  const isStalled = sortedSteps.some(
+    (s) => s.due_at && s.status !== 'complete' && new Date(s.due_at).getTime() < Date.now()
+  );
   const firstName = cycle.person.full_name?.split(' ')[0] ?? cycle.person.email ?? 'there';
 
   // Full chapter name after the slug separator; fall back to the whole string
@@ -575,12 +579,19 @@ export default function RecruitMenuPage() {
               {completedCount} of {sortedSteps.length} steps complete
             </p>
           </div>
-          {clearancePill ? (
-            <span
-              className={`inline-flex shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${clearancePill.cls}`}
-            >
-              {clearancePill.label}
-            </span>
+          {(clearancePill || isStalled) ? (
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              {clearancePill ? (
+                <span className={`inline-flex rounded-full px-3 py-1.5 text-xs font-semibold ${clearancePill.cls}`}>
+                  {clearancePill.label}
+                </span>
+              ) : null}
+              {isStalled ? (
+                <span className="inline-flex rounded-full bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700">
+                  Stalled
+                </span>
+              ) : null}
+            </div>
           ) : null}
         </div>
 
@@ -654,6 +665,13 @@ export default function RecruitMenuPage() {
                   year: 'numeric',
                 })
               : null;
+            const dueDate = step.due_at ? new Date(step.due_at) : null;
+            const isOverdue =
+              dueDate !== null && step.status !== 'complete' && dueDate.getTime() < Date.now();
+            const dueDateStr =
+              dueDate && step.status !== 'complete'
+                ? dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                : null;
 
             // Icon tile background — authority tint for available, neutral slate otherwise.
             // Connector and completed marker are always neutral slate (no green).
@@ -754,6 +772,17 @@ export default function RecruitMenuPage() {
                     {completedDate ? (
                       <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500">
                         ✓ {completedDate}
+                      </span>
+                    ) : null}
+
+                    {/* Due date — rose if overdue, slate if upcoming */}
+                    {dueDateStr ? (
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                          isOverdue ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {isOverdue ? `Overdue · ${dueDateStr}` : `Due ${dueDateStr}`}
                       </span>
                     ) : null}
                   </div>

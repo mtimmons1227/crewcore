@@ -29,6 +29,7 @@ type StepCompletion = {
   workflow_step_id?: string | null;
   status: string;
   completed_at?: string | null;
+  due_at?: string | null;
 };
 
 type WorkflowStep = {
@@ -146,7 +147,7 @@ export default function CommandCenterPage() {
       const cyclesResponse = await supabase
         .from<'registration_cycle', PipelineCycle>('registration_cycle')
         .select(
-          'id,person_id,chapter_id,sport_id,season_id,member_type,status,clearance_level,cleared_at,access_token,created_at,person:person_id(full_name,email,phone),step_completion!cycle_id(id,workflow_step_id,status,completed_at)'
+          'id,person_id,chapter_id,sport_id,season_id,member_type,status,clearance_level,cleared_at,access_token,created_at,person:person_id(full_name,email,phone),step_completion!cycle_id(id,workflow_step_id,status,completed_at,due_at)'
         )
         .order('created_at', { ascending: false });
 
@@ -169,6 +170,7 @@ export default function CommandCenterPage() {
                 workflow_step_id: sc.workflow_step_id,
                 status: sc.status,
                 completed_at: sc.completed_at,
+                due_at: sc.due_at,
               });
             });
           }
@@ -191,16 +193,12 @@ export default function CommandCenterPage() {
   const pipelineSummary = useMemo(() => {
     const totalCycles = registrationCycles.length;
     const completedCycles = registrationCycles.filter((cycle) => cycle.status === 'cleared' || cycle.status === 'completed').length;
-    const now = Date.now();
     const stalledCycles = registrationCycles.filter((cycle) => {
+      if (cycle.status === 'cleared') return false;
       const related = stepCompletions.filter((s) => s.cycle_id === cycle.id);
-      const latestCompletedAt =
-        related.reduce((acc, s) => {
-          const t = s.completed_at ? new Date(s.completed_at).getTime() : 0;
-          return Math.max(acc, t);
-        }, 0) || new Date(cycle.created_at).getTime();
-      const ageDays = Math.max(0, Math.floor((now - latestCompletedAt) / (1000 * 60 * 60 * 24)));
-      return cycle.status !== 'cleared' && ageDays > 14;
+      return related.some(
+        (s) => s.due_at && s.status !== 'complete' && new Date(s.due_at).getTime() < Date.now()
+      );
     }).length;
 
     const totalSteps = stepCompletions.length;
@@ -250,14 +248,10 @@ export default function CommandCenterPage() {
       .map((cycle) => {
         const related = stepCompletions.filter((s) => s.cycle_id === cycle.id);
         const completedSteps = related.filter((s) => s.status === 'complete').length;
-        const latestCompletedAt =
-          related.reduce((acc, s) => {
-            const t = s.completed_at ? new Date(s.completed_at).getTime() : 0;
-            return Math.max(acc, t);
-          }, 0) || new Date(cycle.created_at).getTime();
         const ageDays = Math.max(0, Math.floor((now - new Date(cycle.created_at).getTime()) / (1000 * 60 * 60 * 24)));
-        const daysSinceLatest = Math.max(0, Math.floor((now - latestCompletedAt) / (1000 * 60 * 60 * 24)));
-        const isStalled = cycle.status !== 'cleared' && daysSinceLatest > 14;
+        const isStalled =
+          cycle.status !== 'cleared' &&
+          related.some((s) => s.due_at && s.status !== 'complete' && new Date(s.due_at).getTime() < now);
         const totalSteps = orderedWorkflowSteps.length || 8;
 
         let currentStepName = 'Unknown';
@@ -485,7 +479,7 @@ export default function CommandCenterPage() {
                   row.cycle.status === 'cleared'
                     ? 'bg-emerald-50 text-emerald-700'
                     : row.isStalled
-                      ? 'bg-amber-50 text-amber-700'
+                      ? 'bg-rose-50 text-rose-700'
                       : 'bg-slate-100 text-slate-700';
 
                 // Step counts for this cycle
