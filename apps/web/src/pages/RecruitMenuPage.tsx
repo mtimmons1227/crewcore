@@ -227,18 +227,54 @@ function BookIcon() {
   );
 }
 
-function StepTypeIcon({ stepType }: { stepType: string }) {
+function ShirtIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M1 4.5L4 2h8l3 2.5-2.5 2V14H5.5V6.5L1 4.5z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5.5 2.5C5.5 3.9 6.6 5 8 5s2.5-1.1 2.5-2.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M11 2l3 3-8.5 8.5L2 14l.5-3.5L11 2z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M9.5 3.5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function StepTypeIcon({ stepType, stepName }: { stepType: string; stepName: string }) {
+  const lname = stepName.toLowerCase();
   switch (stepType) {
     case 'payment':
-      return <CreditCardIcon />;
+      return lname.includes('uniform') ? <ShirtIcon /> : <CreditCardIcon />;
     case 'external_confirm':
       return <ClipboardCheckIcon />;
     case 'credential':
       return <ShieldIcon />;
     case 'attendance':
-      return <UsersIcon />;
+      return lname.includes('training') || lname.includes('camp')
+        ? <GraduationCapIcon />
+        : <UsersIcon />;
     case 'assessment':
-      return <GraduationCapIcon />;
+      return <PencilIcon />;
     case 'acknowledgment':
       return <BookIcon />;
     default:
@@ -598,12 +634,14 @@ export default function RecruitMenuPage() {
               : null;
             const desc = getStepDescription(step);
             const costText = getCostText(step);
-            const cadenceLabel =
-              step.cadence === 'biennial'
-                ? 'Every 2 yrs'
+            // count_required overrides cadence in the chip ("6 required")
+            const cadenceLabel = step.config?.count_required
+              ? `${step.config.count_required} required`
+              : step.cadence === 'biennial'
+                ? 'biennial'
                 : step.cadence === 'one_time'
-                  ? 'One-time'
-                  : 'Annual';
+                  ? 'one-time'
+                  : 'annual';
             const metaChip = [costText, cadenceLabel].filter(Boolean).join(' · ');
             const audience =
               !step.required && step.config?.required_for?.length
@@ -644,7 +682,7 @@ export default function RecruitMenuPage() {
                     {step.status === 'complete' ? (
                       <CheckIcon />
                     ) : (
-                      <StepTypeIcon stepType={step.step_type} />
+                      <StepTypeIcon stepType={step.step_type} stepName={step.name} />
                     )}
                   </div>
                   {/* Connector is always neutral slate — no green */}
@@ -690,7 +728,7 @@ export default function RecruitMenuPage() {
                     </p>
                   ) : null}
 
-                  {/* Tag row: Required | audience, authority chip, completed date */}
+                  {/* Tag row: Required | audience | "If applicable", authority chip, completed date */}
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {step.required ? (
                       <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
@@ -700,7 +738,11 @@ export default function RecruitMenuPage() {
                       <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500">
                         {audience}
                       </span>
-                    ) : null}
+                    ) : (
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500">
+                        If applicable
+                      </span>
+                    )}
 
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${authCls}`}
