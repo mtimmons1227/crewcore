@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Card } from '../components/ui';
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type PricingEntry = {
   amount: number;
@@ -67,7 +67,7 @@ type RegistrationResponse = {
   steps: RegistrationStep[];
 };
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Description helpers ───────────────────────────────────────────────────────
 
 function getStepDescription(step: RegistrationStep): string | null {
   const c = step.config;
@@ -83,7 +83,9 @@ function getStepDescription(step: RegistrationStep): string | null {
       const fmt = (d: string) =>
         new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       parts.push(
-        c.dates.length > 1 ? `${fmt(c.dates[0])} – ${fmt(c.dates[c.dates.length - 1])}` : fmt(c.dates[0]),
+        c.dates.length > 1
+          ? `${fmt(c.dates[0])} – ${fmt(c.dates[c.dates.length - 1])}`
+          : fmt(c.dates[0]),
       );
     }
     if (c.fee != null) parts.push(`$${c.fee} fee`);
@@ -127,35 +129,172 @@ function formatAudience(required_for: string[]): string {
   return required_for.map((v) => map[v] ?? v).join(' · ');
 }
 
-// ── Icons ────────────────────────────────────────────────────────────────────
+// ── Icons ─────────────────────────────────────────────────────────────────────
 
 function CheckIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M3 8l3.5 3.5L13 5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M3 8l3.5 3.5L13 5"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
 
-function LockIcon() {
+function CreditCardIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <rect x="2" y="6.5" width="10" height="6.5" rx="1.8" fill="currentColor" opacity="0.45" />
-      <path d="M4 6.5V4.5a3 3 0 016 0v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="1" y="3.5" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M1 6.5h14" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M4 10h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+function ClipboardCheckIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="2" y="2" width="12" height="13" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M5.5 2.5V4a.5.5 0 00.5.5h4a.5.5 0 00.5-.5V2.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M5 8.5l1.5 1.5L11 7"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M8 1.5l5.5 2.25v4c0 3.5-5.5 6.75-5.5 6.75S2.5 11.25 2.5 7.75v-4L8 1.5z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function UsersIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M1 13c0-2.76 2.24-5 5-5s5 2.24 5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M10.5 3.5c1.38 0 2.5 1.12 2.5 2.5s-1.12 2.5-2.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M12 10.5c1.65.5 2.75 1.9 3 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function GraduationCapIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M8 2.5l7 3.5-7 3.5-7-3.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path
+        d="M3 7.5v4c0 1.38 2.24 2.5 5 2.5s5-1.12 5-2.5v-4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path d="M15 6v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function BookIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M3 2h7a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V4a2 2 0 012-2z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path d="M5 5.5h5M5 8h5M5 10.5h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function StepTypeIcon({ stepType }: { stepType: string }) {
+  switch (stepType) {
+    case 'payment':
+      return <CreditCardIcon />;
+    case 'external_confirm':
+      return <ClipboardCheckIcon />;
+    case 'credential':
+      return <ShieldIcon />;
+    case 'attendance':
+      return <UsersIcon />;
+    case 'assessment':
+      return <GraduationCapIcon />;
+    case 'acknowledgment':
+      return <BookIcon />;
+    default:
+      return <ClipboardCheckIcon />;
+  }
+}
+
+// ── Shared class constants (match CommandCenterPage / LeadCapturePage) ─────────
 
 const inputCls =
   'w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400';
 const primaryBtn =
   'w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70';
 
+// ── Merge authority data (called in both initial load and after refresh) ───────
+
+async function mergeAuthorityData(
+  raw: RegistrationResponse,
+): Promise<{ steps: RegistrationStep[]; chapterLogoUrl: string | null }> {
+  const stepIds = raw.steps.map((s) => s.step_id);
+  const chapterSlug = raw.cycle.chapter.split(/\s[-–—]\s/)[0]?.trim() ?? 'DBOA';
+
+  const [wsResult, chapterResult] = await Promise.all([
+    supabase
+      .from('workflow_step')
+      .select('id, authority, prerequisite_step_id')
+      .in('id', stepIds),
+    supabase.from('chapter').select('logo_url').eq('slug', chapterSlug).single(),
+  ]);
+
+  const wsMap: Record<string, { authority: 'state' | 'chapter'; prerequisite_step_id: string | null }> = {};
+  for (const ws of wsResult.data ?? []) {
+    wsMap[ws.id] = {
+      authority: (ws.authority as 'state' | 'chapter') ?? 'chapter',
+      prerequisite_step_id: ws.prerequisite_step_id ?? null,
+    };
+  }
+
+  const steps: RegistrationStep[] = raw.steps.map((s) => ({
+    ...s,
+    authority: wsMap[s.step_id]?.authority ?? 'chapter',
+    prerequisite_step_id: wsMap[s.step_id]?.prerequisite_step_id ?? null,
+  }));
+
+  return {
+    steps,
+    chapterLogoUrl: (chapterResult.data as { logo_url: string | null } | null)?.logo_url ?? null,
+  };
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function RecruitMenuPage() {
   const { token } = useParams();
   const [registration, setRegistration] = useState<RegistrationResponse | null>(null);
+  const [chapterLogo, setChapterLogo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyStep, setBusyStep] = useState<string | null>(null);
@@ -164,7 +303,6 @@ export default function RecruitMenuPage() {
 
   useEffect(() => {
     if (!token) return;
-
     const fetchRegistration = async () => {
       setLoading(true);
       setError(null);
@@ -177,29 +315,10 @@ export default function RecruitMenuPage() {
       }
 
       const raw = data as RegistrationResponse;
-      const stepIds = raw.steps.map((s) => s.step_id);
+      const { steps, chapterLogoUrl } = await mergeAuthorityData(raw);
 
-      // Fetch authority + prerequisite_step_id — not returned by get_registration
-      const { data: wsData } = await supabase
-        .from('workflow_step')
-        .select('id, authority, prerequisite_step_id')
-        .in('id', stepIds);
-
-      const wsMap: Record<string, { authority: 'state' | 'chapter'; prerequisite_step_id: string | null }> = {};
-      for (const ws of wsData ?? []) {
-        wsMap[ws.id] = {
-          authority: (ws.authority as 'state' | 'chapter') ?? 'chapter',
-          prerequisite_step_id: ws.prerequisite_step_id ?? null,
-        };
-      }
-
-      const stepsWithMeta: RegistrationStep[] = raw.steps.map((s) => ({
-        ...s,
-        authority: wsMap[s.step_id]?.authority ?? 'chapter',
-        prerequisite_step_id: wsMap[s.step_id]?.prerequisite_step_id ?? null,
-      }));
-
-      setRegistration({ cycle: raw.cycle, steps: stepsWithMeta });
+      setChapterLogo(chapterLogoUrl);
+      setRegistration({ cycle: raw.cycle, steps });
       setLoading(false);
     };
 
@@ -232,30 +351,9 @@ export default function RecruitMenuPage() {
       return;
     }
 
-    // Re-merge authority data after refresh
     const raw = data as RegistrationResponse;
-    const stepIds = raw.steps.map((s) => s.step_id);
-    const { data: wsData } = await supabase
-      .from('workflow_step')
-      .select('id, authority, prerequisite_step_id')
-      .in('id', stepIds);
-
-    const wsMap: Record<string, { authority: 'state' | 'chapter'; prerequisite_step_id: string | null }> = {};
-    for (const ws of wsData ?? []) {
-      wsMap[ws.id] = {
-        authority: (ws.authority as 'state' | 'chapter') ?? 'chapter',
-        prerequisite_step_id: ws.prerequisite_step_id ?? null,
-      };
-    }
-
-    setRegistration({
-      cycle: raw.cycle,
-      steps: raw.steps.map((s) => ({
-        ...s,
-        authority: wsMap[s.step_id]?.authority ?? 'chapter',
-        prerequisite_step_id: wsMap[s.step_id]?.prerequisite_step_id ?? null,
-      })),
-    });
+    const { steps } = await mergeAuthorityData(raw);
+    setRegistration({ cycle: raw.cycle, steps });
     setBusyStep(null);
   };
 
@@ -267,7 +365,6 @@ export default function RecruitMenuPage() {
     if (step.status === 'available' && step.completion_mode === 'self_report') {
       if (isAssessment) {
         const invalidScore = Number.isNaN(score) || score < 0 || score > 100;
-        const canSubmit = !invalidScore && score >= 70;
         return (
           <div className="flex flex-col gap-3 pt-1">
             <label className="block text-sm font-semibold text-slate-700">
@@ -291,7 +388,7 @@ export default function RecruitMenuPage() {
             ) : null}
             <button
               type="button"
-              disabled={busyStep === step.step_id || !canSubmit}
+              disabled={busyStep === step.step_id || invalidScore || score < 70}
               onClick={() => {
                 if (invalidScore || score < 70) {
                   setStepErrors((prev) => ({
@@ -333,15 +430,23 @@ export default function RecruitMenuPage() {
     return null;
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Loading / error shells ────────────────────────────────────────────────
+
+  const shellHeader = (
+    <header className="rounded-panel bg-slate-900 px-5 py-4 text-white shadow-soft sm:px-6">
+      <div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
+          CrewCore Recruit
+        </div>
+        <div className="mt-0.5 text-xl font-semibold">Your path to officiating</div>
+      </div>
+    </header>
+  );
 
   if (loading) {
     return (
       <div>
-        <header className="rounded-panel bg-slate-900 px-5 py-4 text-white shadow-soft sm:px-6">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">CrewCore Recruit</div>
-          <div className="mt-0.5 text-xl font-semibold">Onboarding journey</div>
-        </header>
+        {shellHeader}
         <Card className="mt-6 p-6">
           <p className="text-sm text-slate-500">Loading your registration…</p>
         </Card>
@@ -352,10 +457,7 @@ export default function RecruitMenuPage() {
   if (error || !registration) {
     return (
       <div>
-        <header className="rounded-panel bg-slate-900 px-5 py-4 text-white shadow-soft sm:px-6">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">CrewCore Recruit</div>
-          <div className="mt-0.5 text-xl font-semibold">Onboarding journey</div>
-        </header>
+        {shellHeader}
         <Card className="mt-6 p-6">
           <p className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
             {error ?? 'Unable to load registration. Please check your link.'}
@@ -365,12 +467,29 @@ export default function RecruitMenuPage() {
     );
   }
 
+  // ── Derived values ────────────────────────────────────────────────────────
+
   const { cycle, steps } = registration;
   const sortedSteps = steps.slice().sort((a, b) => a.sort_order - b.sort_order);
   const completedCount = sortedSteps.filter((s) => s.status === 'complete').length;
   const progressPct = sortedSteps.length > 0 ? Math.round((completedCount / sortedSteps.length) * 100) : 0;
-  const nextStep = sortedSteps.find((s) => s.status === 'available');
   const firstName = cycle.person.full_name?.split(' ')[0] ?? cycle.person.email ?? 'there';
+
+  // Full chapter name after the slug separator; fall back to the whole string
+  const chapterParts = cycle.chapter.split(/\s[-–—]\s/);
+  const fullChapterName = chapterParts.length > 1 ? chapterParts.slice(1).join(' — ') : cycle.chapter;
+
+  // First-year total fees from step configs (new official pricing)
+  const totalFees = sortedSteps.reduce((sum, step) => {
+    const c = step.config;
+    if (!c) return sum;
+    if (Array.isArray(c.pricing)) {
+      const entry = c.pricing.find((p) => p.member_type === 'new') ?? c.pricing[0];
+      if (entry?.amount) return sum + Number(entry.amount);
+    }
+    if (c.fee != null) return sum + Number(c.fee);
+    return sum;
+  }, 0);
 
   const clearancePill =
     cycle.clearance_level === 'playoff'
@@ -379,148 +498,199 @@ export default function RecruitMenuPage() {
         ? { label: 'Regular season cleared', cls: 'bg-emerald-50 text-emerald-700' }
         : null;
 
+  const statTiles = [
+    { label: 'Steps', value: String(sortedSteps.length) },
+    { label: 'First-year fees', value: totalFees > 0 ? `$${totalFees}` : '—' },
+    { label: 'Outcome', value: 'Cleared' },
+  ];
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
     <div>
-      {/* Header */}
+      {/* ── Header (matches CommandCenterPage / LeadCapturePage exactly) ── */}
       <header className="rounded-panel bg-slate-900 px-5 py-4 text-white shadow-soft sm:px-6">
-        <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">CrewCore Recruit</div>
-          <div className="mt-0.5 text-xl font-semibold">
-            {cycle.chapter.split(' — ')[0] ?? 'DBOA'}
+        <div className="flex items-center gap-3">
+          {chapterLogo ? (
+            <img
+              src={chapterLogo}
+              alt=""
+              className="h-11 w-auto shrink-0 rounded-lg object-contain"
+            />
+          ) : null}
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
+              CrewCore Recruit
+            </div>
+            <div className="text-xl font-semibold">Your path to officiating</div>
+            <div className="mt-1 text-sm text-slate-400">
+              {fullChapterName} · {cycle.season} season
+            </div>
           </div>
-          <div className="mt-1 text-sm text-slate-400">Your officiating onboarding journey</div>
         </div>
       </header>
 
-      {/* Progress card */}
+      {/* ── Summary card ── */}
       <Card className="mt-6 p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Welcome back, {firstName}.</h2>
+            <h2 className="text-xl font-semibold text-slate-900">Welcome, {firstName}.</h2>
             <p className="mt-0.5 text-sm text-slate-500">
               {completedCount} of {sortedSteps.length} steps complete
             </p>
           </div>
           {clearancePill ? (
-            <span className={`inline-flex shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${clearancePill.cls}`}>
+            <span
+              className={`inline-flex shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${clearancePill.cls}`}
+            >
               {clearancePill.label}
             </span>
           ) : null}
         </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200">
-          <div className="h-full rounded-full bg-slate-900 transition-all" style={{ width: `${progressPct}%` }} />
+
+        {/* Stat tiles — same pattern as Command Center CYCLES / CLEARED / STALLED */}
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          {statTiles.map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+            >
+              <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                {stat.label}
+              </div>
+              <div className="mt-2 text-2xl font-semibold text-slate-900">{stat.value}</div>
+            </div>
+          ))}
         </div>
-        <div className="mt-2 text-right text-xs font-medium text-slate-400">{progressPct}%</div>
+
+        {/* Progress bar — neutral slate, matching the Command Center roster bar */}
+        <div className="mt-5">
+          <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+            <div
+              className="h-full rounded-full bg-slate-900 transition-all"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <div className="mt-1.5 text-right text-xs font-medium text-slate-400">{progressPct}%</div>
+        </div>
       </Card>
 
-      {/* Legend */}
+      {/* ── Legend ── */}
       <div className="mt-4 flex gap-5 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
         <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
-          <span className="h-3 w-3 rounded-full bg-emerald-500 shrink-0" />
-          DBOA (chapter)
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />
+          DBOA chapter
         </div>
         <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
-          <span className="h-3 w-3 rounded-full bg-blue-500 shrink-0" />
-          THSBOA (state)
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" />
+          THSBOA state
         </div>
       </div>
 
-      {/* Pathway */}
+      {/* ── Timeline ── */}
       {sortedSteps.length > 0 ? (
         <Card className="mt-4 p-5 sm:p-6">
           {sortedSteps.map((step, idx) => {
             const isLast = idx === sortedSteps.length - 1;
-            const isNext = step.step_id === nextStep?.step_id;
             const isChapter = step.authority === 'chapter';
             const prereq = step.prerequisite_step_id
               ? sortedSteps.find((s) => s.step_id === step.prerequisite_step_id)
               : null;
             const desc = getStepDescription(step);
             const costText = getCostText(step);
+            const cadenceLabel =
+              step.cadence === 'biennial'
+                ? 'Every 2 yrs'
+                : step.cadence === 'one_time'
+                  ? 'One-time'
+                  : 'Annual';
+            const metaChip = [costText, cadenceLabel].filter(Boolean).join(' · ');
             const audience =
-              step.required === false && step.config?.required_for?.length
+              !step.required && step.config?.required_for?.length
                 ? formatAudience(step.config.required_for)
                 : null;
-            const completedDate =
-              step.completed_at
-                ? new Date(step.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                : null;
+            const completedDate = step.completed_at
+              ? new Date(step.completed_at).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
+              : null;
 
-            // Icon classes
-            const iconCls = (() => {
-              if (step.status === 'complete') return 'bg-emerald-500 text-white';
-              if (step.status === 'available')
-                return isChapter
-                  ? 'bg-emerald-600 text-white ring-4 ring-emerald-100'
-                  : 'bg-blue-600 text-white ring-4 ring-blue-100';
-              return 'bg-slate-200 text-slate-400';
-            })();
+            // Icon tile background — authority tint for available, neutral slate otherwise.
+            // Connector and completed marker are always neutral slate (no green).
+            const tileCls =
+              step.status === 'complete'
+                ? 'bg-slate-900 text-white'
+                : step.status === 'available'
+                  ? isChapter
+                    ? 'bg-emerald-50 text-emerald-600'
+                    : 'bg-blue-50 text-blue-600'
+                  : 'bg-slate-100 text-slate-300';
 
-            // Connector color
-            const connectorCls = step.status === 'complete' ? 'bg-emerald-300' : 'bg-slate-200';
-
-            // Authority chip
+            // Authority chip — appears only here and on the icon tile tint
             const authCls = isChapter
               ? 'bg-emerald-50 text-emerald-700'
               : 'bg-blue-50 text-blue-700';
             const authLabel = isChapter ? 'DBOA' : 'THSBOA';
 
             return (
-              <div key={step.step_id} className="flex gap-3.5">
-                {/* Icon + connector column */}
-                <div className="flex flex-col items-center">
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold transition-shadow ${iconCls}`}>
+              <div key={step.step_id} className="flex gap-4">
+                {/* ── Icon tile + connector ── */}
+                <div className="flex flex-col items-center gap-1">
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tileCls}`}
+                  >
                     {step.status === 'complete' ? (
                       <CheckIcon />
-                    ) : step.status === 'locked' ? (
-                      <LockIcon />
                     ) : (
-                      step.sort_order
+                      <StepTypeIcon stepType={step.step_type} />
                     )}
                   </div>
+                  {/* Connector is always neutral slate — no green */}
                   {!isLast && (
-                    <div className={`mt-1 w-0.5 flex-1 rounded-sm ${connectorCls}`} style={{ minHeight: 20 }} />
+                    <div
+                      className="w-0.5 flex-1 bg-slate-200"
+                      style={{ minHeight: 20 }}
+                    />
                   )}
                 </div>
 
-                {/* Content */}
-                <div className={`min-w-0 flex-1 ${isLast ? 'pb-0' : 'pb-6'}`}>
-                  {/* Step number + meta chips */}
+                {/* ── Step content ── */}
+                <div className={`min-w-0 flex-1 pt-1 ${isLast ? 'pb-0' : 'pb-6'}`}>
+                  {/* Step label + single cost·cadence chip */}
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
                       Step {step.sort_order}
                     </span>
-                    <div className="flex gap-1.5">
-                      {costText ? (
-                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
-                          {costText}
-                        </span>
-                      ) : null}
-                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
-                        {step.cadence === 'biennial' ? 'Every 2 yrs' : step.cadence === 'one_time' ? 'One-time' : 'Annual'}
+                    {metaChip ? (
+                      <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                        {metaChip}
                       </span>
-                    </div>
+                    ) : null}
                   </div>
 
-                  {/* Step name */}
-                  <h3 className={`mt-0.5 text-sm font-semibold leading-snug ${
-                    step.status === 'locked'
-                      ? 'text-slate-400'
-                      : isNext
-                        ? isChapter ? 'text-emerald-700' : 'text-blue-700'
-                        : 'text-slate-900'
-                  }`}>
+                  {/* Step name — always slate, no authority accent */}
+                  <h3
+                    className={`mt-0.5 text-sm font-semibold leading-snug ${
+                      step.status === 'locked' ? 'text-slate-400' : 'text-slate-900'
+                    }`}
+                  >
                     {step.name}
                   </h3>
 
                   {/* One-line description */}
                   {desc ? (
-                    <p className={`mt-0.5 text-sm ${step.status === 'locked' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <p
+                      className={`mt-0.5 text-sm ${
+                        step.status === 'locked' ? 'text-slate-400' : 'text-slate-500'
+                      }`}
+                    >
                       {desc}
                     </p>
                   ) : null}
 
-                  {/* Tags row */}
+                  {/* Tag row: Required | audience, authority chip, completed date */}
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {step.required ? (
                       <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
@@ -531,24 +701,22 @@ export default function RecruitMenuPage() {
                         {audience}
                       </span>
                     ) : null}
-                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${authCls}`}>
+
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${authCls}`}
+                    >
                       {authLabel}
                     </span>
-                    {isNext ? (
-                      <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                        isChapter ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        Do this next
-                      </span>
-                    ) : null}
-                    {step.status === 'complete' && completedDate ? (
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+
+                    {/* Completed date — neutral slate, not green */}
+                    {completedDate ? (
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500">
                         ✓ {completedDate}
                       </span>
                     ) : null}
                   </div>
 
-                  {/* Prerequisite note */}
+                  {/* Unlocks-after note */}
                   {prereq ? (
                     <p className="mt-1.5 text-xs text-slate-400">
                       Unlocks after:{' '}
@@ -556,7 +724,7 @@ export default function RecruitMenuPage() {
                     </p>
                   ) : null}
 
-                  {/* Action */}
+                  {/* Self-report action */}
                   <div className="mt-2">{renderStepAction(step)}</div>
                 </div>
               </div>
