@@ -538,10 +538,18 @@ export default function RecruitMenuPage() {
         ? { label: 'Regular season cleared', cls: 'bg-emerald-50 text-emerald-700' }
         : null;
 
+  const isCleared = cycle.clearance_level != null && cycle.clearance_level !== 'none';
+  const statusLabel = isCleared ? 'Cleared' : isStalled ? 'Stalled' : 'In progress';
+  const statusValueCls = isCleared
+    ? 'text-emerald-600'
+    : isStalled
+      ? 'text-rose-600'
+      : 'text-slate-900';
+
   const statTiles = [
-    { label: 'Steps', value: String(sortedSteps.length) },
-    { label: 'First-year fees', value: totalFees > 0 ? `$${totalFees}` : '—' },
-    { label: 'Outcome', value: 'Cleared' },
+    { label: 'Steps', value: String(sortedSteps.length), valueCls: 'text-slate-900' },
+    { label: 'First-year fees', value: totalFees > 0 ? `$${totalFees}` : '—', valueCls: 'text-slate-900' },
+    { label: 'Status', value: statusLabel, valueCls: statusValueCls },
   ];
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -605,7 +613,7 @@ export default function RecruitMenuPage() {
               <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
                 {stat.label}
               </div>
-              <div className="mt-2 text-2xl font-semibold text-slate-900">{stat.value}</div>
+              <div className={`mt-2 text-2xl font-semibold ${stat.valueCls}`}>{stat.value}</div>
             </div>
           ))}
         </div>
