@@ -413,7 +413,7 @@ export default function CommandCenterPage() {
         <>
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: 'Cycles', value: pipelineSummary.totalCycles },
+              { label: 'Recruits', value: pipelineSummary.totalCycles },
               { label: 'Cleared', value: pipelineSummary.completedCycles },
               { label: 'Stalled', value: pipelineSummary.stalledCycles },
               { label: 'Dropout rate', value: `${pipelineSummary.dropoutRate}%` },
