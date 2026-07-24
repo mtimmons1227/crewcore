@@ -13,9 +13,28 @@ const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
 const CHAPTER_ACCOUNT = Deno.env.get('STRIPE_CHAPTER_ACCOUNT_ID')!;
 const APP_URL = Deno.env.get('APP_URL') ?? 'http://localhost:5173';
 
-// DBOA dues in cents by member_type (from docs/sdlc/08-future-releases.md)
-const DUES: Record<string, number> = { new: 12500, returning: 17500, transfer: 17500 };
+// Fallback dues in cents — used only when workflow_step.config has no pricing/fee.
+const DUES_FALLBACK: Record<string, number> = { new: 12500, returning: 17500, transfer: 17500 };
 const CREWCORE_FEE_PCT = 0.1; // 10% application fee
+
+type PricingEntry = { amount: number; member_type: string };
+
+function amountFromConfig(
+  config: Record<string, unknown> | null,
+  memberType: string,
+): number | null {
+  if (!config) return null;
+  // Prefer fee (flat, no member-type lookup)
+  if (typeof config.fee === 'number') return config.fee * 100;
+  // Then pricing array matched by member_type
+  if (Array.isArray(config.pricing)) {
+    const entry =
+      (config.pricing as PricingEntry[]).find((p) => p.member_type === memberType) ??
+      (config.pricing as PricingEntry[])[0];
+    if (entry?.amount) return entry.amount * 100;
+  }
+  return null;
+}
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -46,19 +65,24 @@ Deno.serve(async (req) => {
       .single();
     if (cycleErr || !cycle) return json({ error: 'Invalid registration token' }, 400);
 
-    // Verify the requested step is available for this cycle
-    const { data: completion, error: compErr } = await admin
+    // Verify the requested step is available and fetch its config for the amount
+    const { data: stepRow, error: stepErr } = await admin
       .from('step_completion')
-      .select('id')
+      .select('id, workflow_step!inner(config)')
       .eq('cycle_id', cycle.id)
       .eq('workflow_step_id', step_id)
       .eq('status', 'available')
       .single();
-    if (compErr || !completion) return json({ error: 'Step not available for payment' }, 400);
+    if (stepErr || !stepRow) return json({ error: 'Step not available for payment' }, 400);
 
-    const amountCents = DUES[cycle.member_type ?? 'new'] ?? 12500;
+    const memberType = cycle.member_type ?? 'new';
+    const stepConfig = (stepRow.workflow_step as { config: Record<string, unknown> } | null)?.config ?? null;
+    const amountCents =
+      amountFromConfig(stepConfig, memberType) ??
+      DUES_FALLBACK[memberType] ??
+      12500;
     const feeCents = Math.round(amountCents * CREWCORE_FEE_PCT);
-    const memberLabel = cycle.member_type ?? 'new';
+    const memberLabel = memberType;
 
     const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
 
