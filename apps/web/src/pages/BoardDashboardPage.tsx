@@ -42,12 +42,7 @@ type BoardRoster = {
   recruits: Recruit[];
 };
 
-// Cast needed because get_board_roster is not yet in the generated DB types.
-type RpcFn = (
-  fn: string,
-  args: Record<string, unknown>,
-) => Promise<{ data: unknown; error: { message: string } | null }>;
-const boardRpc = supabase.rpc as unknown as RpcFn;
+// get_board_roster is not yet in the generated DB types.
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -148,15 +143,19 @@ export default function BoardDashboardPage() {
     setLoading(true);
     setFetchError(null);
 
-    boardRpc('get_board_roster', { p_chapter_slug: 'DBOA' }).then(({ data, error }) => {
-      if (cancelled) return;
-      if (error) {
-        setFetchError(error.message ?? 'Failed to load roster.');
-      } else {
-        setRoster(data as BoardRoster);
-      }
-      setLoading(false);
-    });
+    // Cast the client (not the method) to preserve `this` binding inside rpc().
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .rpc('get_board_roster', { p_chapter_slug: 'DBOA' })
+      .then(({ data, error }: { data: unknown; error: { message: string } | null }) => {
+        if (cancelled) return;
+        if (error) {
+          setFetchError(error.message ?? 'Failed to load roster.');
+        } else {
+          setRoster(data as BoardRoster);
+        }
+        setLoading(false);
+      });
 
     return () => {
       cancelled = true;
