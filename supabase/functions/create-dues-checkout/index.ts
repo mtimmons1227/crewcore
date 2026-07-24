@@ -10,7 +10,7 @@ import Stripe from 'npm:stripe@14';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
-const CHAPTER_ACCOUNT = Deno.env.get('STRIPE_CHAPTER_ACCOUNT_ID')!;
+const CHAPTER_ACCOUNT = Deno.env.get('STRIPE_CHAPTER_ACCOUNT_ID') ?? '';
 const APP_URL = Deno.env.get('APP_URL') ?? 'http://localhost:5173';
 
 // Fallback dues in cents — used only when workflow_step.config has no pricing/fee.
@@ -86,36 +86,41 @@ Deno.serve(async (req) => {
 
     const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
 
-    const session = await stripe.checkout.sessions.create(
-      {
-        payment_method_types: ['card'],
-        mode: 'payment',
-        line_items: [
-          {
-            quantity: 1,
-            price_data: {
-              currency: 'usd',
-              unit_amount: amountCents,
-              product_data: {
-                name: 'DBOA Chapter Dues',
-                description: `${memberLabel.charAt(0).toUpperCase() + memberLabel.slice(1)} member dues`,
-              },
+    const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
+      payment_method_types: ['card'],
+      mode: 'payment',
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: 'usd',
+            unit_amount: amountCents,
+            product_data: {
+              name: 'DBOA Chapter Dues',
+              description: `${memberLabel.charAt(0).toUpperCase() + memberLabel.slice(1)} member dues`,
             },
           },
-        ],
-        success_url: `${APP_URL}/r/${token}?payment=success`,
-        cancel_url: `${APP_URL}/r/${token}`,
-        metadata: {
-          cycle_id: cycle.id,
-          step_id,
-          chapter_id: cycle.chapter_id,
-          person_id: cycle.person_id,
-          season_id: cycle.season_id ?? '',
         },
-        application_fee_amount: feeCents,
+      ],
+      success_url: `${APP_URL}/r/${token}?payment=success`,
+      cancel_url: `${APP_URL}/r/${token}`,
+      metadata: {
+        cycle_id: cycle.id,
+        step_id,
+        chapter_id: cycle.chapter_id,
+        person_id: cycle.person_id,
+        season_id: cycle.season_id ?? '',
       },
-      { stripeAccount: CHAPTER_ACCOUNT },
-    );
+      ...(CHAPTER_ACCOUNT ? { application_fee_amount: feeCents } : {}),
+    };
+
+    // With a connected account: charge on their behalf, platform takes fee.
+    // Without: direct charge on the platform account (test mode / no Connect setup).
+    const requestOptions = CHAPTER_ACCOUNT
+      ? { stripeAccount: CHAPTER_ACCOUNT }
+      : {};
+
+    const session = await stripe.checkout.sessions.create(sessionParams, requestOptions);
 
     return json({ url: session.url });
   } catch (err) {
