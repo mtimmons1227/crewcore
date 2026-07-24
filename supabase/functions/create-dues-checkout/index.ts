@@ -116,11 +116,9 @@ Deno.serve(async (req) => {
 
     // With a connected account: charge on their behalf, platform takes fee.
     // Without: direct charge on the platform account (test mode / no Connect setup).
-    const requestOptions = CHAPTER_ACCOUNT
-      ? { stripeAccount: CHAPTER_ACCOUNT }
-      : {};
-
-    const session = await stripe.checkout.sessions.create(sessionParams, requestOptions);
+    const session = CHAPTER_ACCOUNT
+      ? await stripe.checkout.sessions.create(sessionParams, { stripeAccount: CHAPTER_ACCOUNT })
+      : await stripe.checkout.sessions.create(sessionParams);
 
     return json({ url: session.url });
   } catch (err) {
