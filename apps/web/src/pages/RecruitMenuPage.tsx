@@ -598,7 +598,9 @@ export default function RecruitMenuPage() {
             ? 'not_started'
             : step.step_type === 'payment'
               ? 'unpaid'
-              : 'awaiting';
+              : step.status === 'available'
+                ? 'awaiting'
+                : 'not_started';
       return { step, amount, channel, pill };
     });
   const paidFeeCount = feeRows.filter((r) => r.pill === 'paid').length;
