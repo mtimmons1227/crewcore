@@ -32,6 +32,7 @@ type StepConfig = {
   location?: string;
   distributed_by?: string;
   thresholds?: { playoffs: number; regular_season: number };
+  first_game_required?: boolean;
   [key: string]: unknown;
 };
 
@@ -50,7 +51,6 @@ type RegistrationStep = {
   evidence_url: string | null;
   data: Record<string, unknown>;
   config: StepConfig | null;
-  // injected from workflow_step after RPC
   authority: 'state' | 'chapter';
   prerequisite_step_id: string | null;
 };
@@ -75,6 +75,10 @@ type FeeRow = {
   channel: 'refnet' | 'arbiter' | 'dboa';
   pill: 'paid' | 'unpaid' | 'awaiting' | 'not_started';
 };
+
+type RenderItem =
+  | { kind: 'step'; step: RegistrationStep; idx: number }
+  | { kind: 'milestone'; prevComplete: boolean };
 
 // ── Description helpers ───────────────────────────────────────────────────────
 
@@ -282,6 +286,21 @@ function PencilIcon() {
   );
 }
 
+function ChevronDownIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease', flexShrink: 0 }}
+      aria-hidden="true"
+    >
+      <path d="M3 6l5 5 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function StepTypeIcon({ stepType, stepName }: { stepType: string; stepName: string }) {
   const lname = stepName.toLowerCase();
   switch (stepType) {
@@ -304,14 +323,58 @@ function StepTypeIcon({ stepType, stepName }: { stepType: string; stepName: stri
   }
 }
 
-// ── Shared class constants (match CommandCenterPage / LeadCapturePage) ─────────
+function NodeCircle({ state, number }: { state: 'complete' | 'current' | 'locked'; number: number }) {
+  if (state === 'complete') {
+    return (
+      <div
+        style={{
+          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+          backgroundColor: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M3 8l3.5 3.5L13 5" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+    );
+  }
+  if (state === 'current') {
+    return (
+      <div
+        style={{
+          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+          backgroundColor: 'white', border: '2.5px solid #2563eb',
+          boxShadow: '0 0 0 4px rgba(37,99,235,0.12)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        <div style={{ width: 9, height: 9, borderRadius: '50%', backgroundColor: '#2563eb' }} />
+      </div>
+    );
+  }
+  return (
+    <div
+      style={{
+        width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+        backgroundColor: 'white', border: '2px solid #e2e8f0',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', lineHeight: 1 }}>{number}</span>
+    </div>
+  );
+}
+
+// ── Shared class constants ────────────────────────────────────────────────────
 
 const inputCls =
   'w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400';
 const primaryBtn =
   'w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70';
 
-// ── Merge authority data (called in both initial load and after refresh) ───────
+const PER_GAME_FEE = 50;
+
+// ── Merge authority data ───────────────────────────────────────────────────────
 
 async function mergeAuthorityData(
   raw: RegistrationResponse,
@@ -360,6 +423,7 @@ export default function RecruitMenuPage() {
   const [assessmentScores, setAssessmentScores] = useState<Record<string, string>>({});
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [feesOpen, setFeesOpen] = useState(false);
   const paymentSuccess = searchParams.get('payment') === 'success';
 
   useEffect(() => {
@@ -570,11 +634,10 @@ export default function RecruitMenuPage() {
   const completedCount = sortedSteps.filter((s) => s.status === 'complete').length;
   const progressPct = sortedSteps.length > 0 ? Math.round((completedCount / sortedSteps.length) * 100) : 0;
   const isStalled = sortedSteps.some(
-    (s) => s.due_at && s.status !== 'complete' && new Date(s.due_at).getTime() < Date.now()
+    (s) => s.due_at && s.status !== 'complete' && new Date(s.due_at).getTime() < Date.now(),
   );
   const firstName = cycle.person.full_name?.split(' ')[0] ?? cycle.person.email ?? 'there';
 
-  // Full chapter name after the slug separator; fall back to the whole string
   const chapterParts = cycle.chapter.split(/\s[-–—]\s/);
   const fullChapterName = chapterParts.length > 1 ? chapterParts.slice(1).join(' — ') : cycle.chapter;
 
@@ -601,8 +664,21 @@ export default function RecruitMenuPage() {
               : 'not_started';
       return { step, amount, channel, pill };
     });
+
   const paidFeeCount = feeRows.filter((r) => r.pill === 'paid').length;
   const totalFees = feeRows.reduce((sum, r) => sum + r.amount, 0);
+  const paidAmount = feeRows.filter((r) => r.pill === 'paid').reduce((sum, r) => sum + r.amount, 0);
+  const remainingFees = totalFees - paidAmount;
+  const earnBackGames = totalFees > 0 ? Math.round(totalFees / PER_GAME_FEE) : 0;
+
+  const stepsToFirstGame = sortedSteps.filter(
+    (s) => s.config?.first_game_required === true && s.status !== 'complete',
+  ).length;
+
+  const lastFirstGameIdx = sortedSteps.reduce(
+    (last, s, i) => (s.config?.first_game_required === true ? i : last),
+    -1,
+  );
 
   const clearancePill =
     cycle.clearance_level === 'playoff'
@@ -612,24 +688,30 @@ export default function RecruitMenuPage() {
         : null;
 
   const isCleared = cycle.clearance_level != null && cycle.clearance_level !== 'none';
-  const statusLabel = isCleared ? 'Cleared' : isStalled ? 'Stalled' : 'In progress';
-  const statusValueCls = isCleared
-    ? 'text-emerald-600'
-    : isStalled
-      ? 'text-rose-600'
-      : 'text-slate-900';
 
-  const statTiles = [
-    { label: 'Steps', value: String(sortedSteps.length), valueCls: 'text-slate-900' },
-    { label: 'First-year fees', value: totalFees > 0 ? `$${totalFees}` : '—', valueCls: 'text-slate-900' },
-    { label: 'Status', value: statusLabel, valueCls: statusValueCls },
-  ];
+  const headline =
+    lastFirstGameIdx === -1
+      ? isCleared
+        ? "You're cleared to work games!"
+        : `${completedCount} of ${sortedSteps.length} steps complete`
+      : stepsToFirstGame === 0
+        ? "You've unlocked your first paid game! 🏁"
+        : `You're ${stepsToFirstGame} step${stepsToFirstGame !== 1 ? 's' : ''} from your first paid game 🏁`;
+
+  // Build render items: steps interspersed with an optional milestone marker
+  const renderItems: RenderItem[] = [];
+  sortedSteps.forEach((step, idx) => {
+    renderItems.push({ kind: 'step', step, idx });
+    if (lastFirstGameIdx !== -1 && idx === lastFirstGameIdx) {
+      renderItems.push({ kind: 'milestone', prevComplete: step.status === 'complete' });
+    }
+  });
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div>
-      {/* ── Header (matches CommandCenterPage / LeadCapturePage exactly) ── */}
+      {/* ── Header ── */}
       <header className="rounded-panel bg-slate-900 px-5 py-4 text-white shadow-soft sm:px-6">
         <div className="flex items-center gap-3">
           {chapterLogo ? (
@@ -651,192 +733,212 @@ export default function RecruitMenuPage() {
         </div>
       </header>
 
+      {/* ── Payment success banner ── */}
       {paymentSuccess ? (
         <div className="mt-4 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-700">
           Payment confirmed — your dues step has been marked complete.
         </div>
       ) : null}
 
-      {/* ── Summary card ── */}
-      <Card className="mt-6 p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-900">Welcome, {firstName}.</h2>
-            <p className="mt-0.5 text-sm text-slate-500">
-              {completedCount} of {sortedSteps.length} steps complete
-            </p>
-          </div>
-          {(clearancePill || isStalled) ? (
-            <div className="flex shrink-0 flex-col items-end gap-1.5">
-              {clearancePill ? (
-                <span className={`inline-flex rounded-full px-3 py-1.5 text-xs font-semibold ${clearancePill.cls}`}>
-                  {clearancePill.label}
-                </span>
+      {/* ── 2. Fees strip (compact, collapsible) ── */}
+      {feeRows.length > 0 ? (
+        <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <button
+            type="button"
+            onClick={() => setFeesOpen((o) => !o)}
+            className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left"
+            aria-expanded={feesOpen}
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">
+                First-year fees ${totalFees}
+                {remainingFees > 0 ? ` · $${remainingFees} left` : ' · fully paid'}
+              </p>
+              {earnBackGames > 0 ? (
+                <p className="mt-0.5 text-xs text-emerald-600">
+                  Ref ~{earnBackGames} games to earn it back
+                </p>
               ) : null}
-              {isStalled ? (
-                <span className="inline-flex rounded-full bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700">
-                  Stalled
-                </span>
-              ) : null}
+            </div>
+            <span className="text-slate-400">
+              <ChevronDownIcon open={feesOpen} />
+            </span>
+          </button>
+
+          {feesOpen ? (
+            <div className="border-t border-slate-100 px-4 pb-5 pt-3">
+              {/* Column headers */}
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 border-b border-slate-200 pb-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Item</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Amount</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</span>
+              </div>
+
+              {/* Fee rows */}
+              {feeRows.map(({ step, amount, channel, pill }) => {
+                const isChapter = step.authority === 'chapter';
+                const tileCls =
+                  step.status === 'complete'
+                    ? 'bg-slate-900 text-white'
+                    : step.status === 'available'
+                      ? isChapter
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : 'bg-blue-50 text-blue-600'
+                      : 'bg-slate-100 text-slate-300';
+                const channelDotCls = channel === 'arbiter' ? 'bg-blue-500' : 'bg-emerald-500';
+                const channelText =
+                  channel === 'refnet'
+                    ? 'Paid here in RefNet · card'
+                    : channel === 'arbiter'
+                      ? 'Paid on ArbiterSports · confirmed automatically'
+                      : 'Paid to DBOA';
+                const pillStyle =
+                  pill === 'paid'
+                    ? { bg: '#dcfce7', color: '#16a34a', label: 'Paid' }
+                    : pill === 'unpaid'
+                      ? { bg: '#ffe4e6', color: '#e11d48', label: 'Unpaid' }
+                      : pill === 'awaiting'
+                        ? { bg: '#fef3c7', color: '#b45309', label: 'Awaiting confirm' }
+                        : { bg: '#f1f5f9', color: '#64748b', label: 'Not started' };
+
+                return (
+                  <div
+                    key={step.step_id}
+                    className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 border-b border-slate-100 py-3 last:border-b-0"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${tileCls}`}>
+                        {step.status === 'complete' ? (
+                          <CheckIcon />
+                        ) : (
+                          <StepTypeIcon stepType={step.step_type} stepName={step.name} />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">{step.name}</p>
+                        <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${channelDotCls}`} />
+                          {channelText}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-sm font-semibold tabular-nums text-slate-900">${amount}</span>
+                    <span
+                      className="whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                      style={{ backgroundColor: pillStyle.bg, color: pillStyle.color }}
+                    >
+                      {pillStyle.label}
+                    </span>
+                  </div>
+                );
+              })}
+
+              {/* Total row */}
+              <div className="mt-2 border-t border-slate-200 pt-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">First-year total</p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {paidFeeCount} paid {paidFeeCount === 1 ? 'item' : 'items'} · other steps have
+                      no fee
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-xl font-bold text-slate-900">${totalFees}</p>
+                </div>
+              </div>
+
+              {/* How-it-works note */}
+              <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
+                <p className="text-xs leading-relaxed text-slate-500">
+                  <span className="font-semibold text-slate-700">How this works:</span>{' '}
+                  Only the chapter dues are paid inside RefNet by card. State dues are paid on
+                  ArbiterSports and confirmed here automatically once your state eligibility clears.
+                  The training camp fee is collected by DBOA. The remaining steps carry no fee.
+                </p>
+              </div>
             </div>
           ) : null}
         </div>
+      ) : null}
 
-        {/* Stat tiles — same pattern as Command Center CYCLES / CLEARED / STALLED */}
-        <div className="mt-4 grid grid-cols-3 gap-3">
-          {statTiles.map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-            >
-              <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
-                {stat.label}
-              </div>
-              <div className={`mt-2 text-2xl font-semibold ${stat.valueCls}`}>{stat.value}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Progress bar — neutral slate, matching the Command Center roster bar */}
-        <div className="mt-5">
-          <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
-            <div
-              className="h-full rounded-full bg-slate-900 transition-all"
-              style={{ width: `${progressPct}%` }}
-            />
+      {/* ── 3. Progress headline ── */}
+      <Card className="mt-4 p-5">
+        <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+          {firstName}&apos;s progress
+        </p>
+        <h2 className="mt-1 text-lg font-semibold leading-snug text-slate-900">{headline}</h2>
+        {clearancePill || isStalled ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {clearancePill ? (
+              <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${clearancePill.cls}`}>
+                {clearancePill.label}
+              </span>
+            ) : null}
+            {isStalled ? (
+              <span className="inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
+                Stalled
+              </span>
+            ) : null}
           </div>
-          <div className="mt-1.5 text-right text-xs font-medium text-slate-400">{progressPct}%</div>
+        ) : null}
+        <div className="mt-3 flex items-center gap-5 border-t border-slate-100 pt-3">
+          <div>
+            <span className="text-xl font-bold text-slate-900">{completedCount}</span>
+            <span className="ml-1 text-sm text-slate-400">done</span>
+          </div>
+          <div className="text-slate-200 select-none">·</div>
+          <div>
+            <span className="text-xl font-bold text-slate-900">{sortedSteps.length - completedCount}</span>
+            <span className="ml-1 text-sm text-slate-400">left</span>
+          </div>
+          <div className="text-slate-200 select-none">·</div>
+          <div>
+            <span className="text-xl font-bold text-slate-900">{progressPct}%</span>
+          </div>
         </div>
       </Card>
 
-      {/* ── Fees card ── */}
-      {feeRows.length > 0 ? (
-        <Card className="mt-4 p-5 sm:p-6">
-          <h3 className="text-base font-semibold text-slate-900">Your fees</h3>
-
-          {/* Column headers */}
-          <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 border-b border-slate-200 pb-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Item</span>
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Amount</span>
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</span>
-          </div>
-
-          {/* Fee rows */}
-          {feeRows.map(({ step, amount, channel, pill }) => {
-            const isChapter = step.authority === 'chapter';
-            const tileCls =
-              step.status === 'complete'
-                ? 'bg-slate-900 text-white'
-                : step.status === 'available'
-                  ? isChapter
-                    ? 'bg-emerald-50 text-emerald-600'
-                    : 'bg-blue-50 text-blue-600'
-                  : 'bg-slate-100 text-slate-300';
-            const channelDotCls = channel === 'arbiter' ? 'bg-blue-500' : 'bg-emerald-500';
-            const channelText =
-              channel === 'refnet'
-                ? 'Paid here in RefNet · card'
-                : channel === 'arbiter'
-                  ? 'Paid on ArbiterSports · confirmed automatically'
-                  : 'Paid to DBOA';
-            const pillStyle =
-              pill === 'paid'
-                ? { bg: '#dcfce7', color: '#16a34a', label: 'Paid' }
-                : pill === 'unpaid'
-                  ? { bg: '#ffe4e6', color: '#e11d48', label: 'Unpaid' }
-                  : pill === 'awaiting'
-                    ? { bg: '#fef3c7', color: '#b45309', label: 'Awaiting confirm' }
-                    : { bg: '#f1f5f9', color: '#64748b', label: 'Not started' };
-
-            return (
-              <div
-                key={step.step_id}
-                className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 border-b border-slate-100 py-3 last:border-b-0"
-              >
-                {/* Icon + name + channel */}
-                <div className="flex min-w-0 items-center gap-3">
-                  <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${tileCls}`}
-                  >
-                    {step.status === 'complete' ? (
-                      <CheckIcon />
-                    ) : (
-                      <StepTypeIcon stepType={step.step_type} stepName={step.name} />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-900">{step.name}</p>
-                    <p className="flex items-center gap-1.5 text-xs text-slate-500">
-                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${channelDotCls}`} />
-                      {channelText}
-                    </p>
-                  </div>
-                </div>
-                {/* Amount */}
-                <span className="text-sm font-semibold tabular-nums text-slate-900">
-                  ${amount}
-                </span>
-                {/* Status pill */}
-                <span
-                  className="whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                  style={{ backgroundColor: pillStyle.bg, color: pillStyle.color }}
-                >
-                  {pillStyle.label}
-                </span>
-              </div>
-            );
-          })}
-
-          {/* First-year total */}
-          <div className="mt-2 border-t border-slate-200 pt-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-bold text-slate-900">First-year total</p>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  {paidFeeCount} paid {paidFeeCount === 1 ? 'item' : 'items'} · other steps have
-                  no fee
-                </p>
-              </div>
-              <p className="shrink-0 text-xl font-bold text-slate-900">${totalFees}</p>
-            </div>
-          </div>
-
-          {/* How-it-works note */}
-          <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
-            <p className="text-xs leading-relaxed text-slate-500">
-              <span className="font-semibold text-slate-700">How this works:</span>{' '}
-              Only the chapter dues are paid inside RefNet by card. State dues are paid on
-              ArbiterSports and confirmed here automatically once your state eligibility clears.
-              The training camp fee is collected by DBOA. The remaining steps carry no fee.
-            </p>
-          </div>
-        </Card>
-      ) : null}
-
-      {/* ── Legend ── */}
-      <div className="mt-4 flex gap-5 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
-          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />
-          DBOA chapter
-        </div>
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
-          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" />
-          THSBOA state
-        </div>
-      </div>
-
-      {/* ── Timeline ── */}
+      {/* ── 4. Vertical meter ── */}
       {sortedSteps.length > 0 ? (
         <Card className="mt-4 p-5 sm:p-6">
-          {sortedSteps.map((step, idx) => {
-            const isLast = idx === sortedSteps.length - 1;
-            const isChapter = step.authority === 'chapter';
+          {renderItems.map((item, ri) => {
+            const isLastRi = ri === renderItems.length - 1;
+
+            // ── Milestone marker ──
+            if (item.kind === 'milestone') {
+              const railBg = item.prevComplete ? '#059669' : '#e2e8f0';
+              return (
+                <div key="milestone" className="flex gap-3">
+                  <div className="flex flex-col items-center" style={{ width: 28 }}>
+                    <div style={{ width: 2, height: 14, backgroundColor: railBg, flexShrink: 0 }} />
+                    <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }} aria-hidden="true">🏁</span>
+                    {!isLastRi ? (
+                      <div style={{ width: 2, flex: 1, minHeight: 10, backgroundColor: '#e2e8f0' }} />
+                    ) : null}
+                  </div>
+                  <div className="flex flex-1 items-center pb-5">
+                    <div className="w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                      <p className="text-sm font-semibold text-amber-700">First paid game unlocks here.</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // ── Step row ──
+            const { step, idx } = item;
+            const nodeState: 'complete' | 'current' | 'locked' =
+              step.status === 'complete'
+                ? 'complete'
+                : step.status === 'available'
+                  ? 'current'
+                  : 'locked';
+            const railColor = step.status === 'complete' ? '#059669' : '#e2e8f0';
             const prereq = step.prerequisite_step_id
               ? sortedSteps.find((s) => s.step_id === step.prerequisite_step_id)
               : null;
             const desc = getStepDescription(step);
             const costText = getCostText(step);
-            // count_required overrides cadence in the chip ("6 required")
             const cadenceLabel = step.config?.count_required
               ? `${step.config.count_required} required`
               : step.cadence === 'biennial'
@@ -863,70 +965,40 @@ export default function RecruitMenuPage() {
               dueDate && step.status !== 'complete'
                 ? dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                 : null;
-
-            // Icon tile background — authority tint for available, neutral slate otherwise.
-            // Connector and completed marker are always neutral slate (no green).
-            const tileCls =
-              step.status === 'complete'
-                ? 'bg-slate-900 text-white'
-                : step.status === 'available'
-                  ? isChapter
-                    ? 'bg-emerald-50 text-emerald-600'
-                    : 'bg-blue-50 text-blue-600'
-                  : 'bg-slate-100 text-slate-300';
-
-            // Authority chip — appears only here and on the icon tile tint
-            const authCls = isChapter
-              ? 'bg-emerald-50 text-emerald-700'
-              : 'bg-blue-50 text-blue-700';
+            const isChapter = step.authority === 'chapter';
+            const authCls = isChapter ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700';
             const authLabel = isChapter ? 'DBOA' : 'THSBOA';
 
+            // Suppress unused idx warning (used for future milestone placement)
+            void idx;
+
             return (
-              <div key={step.step_id} className="flex gap-4">
-                {/* ── Icon tile + connector ── */}
-                <div className="flex flex-col items-center gap-1">
-                  <div
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tileCls}`}
-                  >
-                    {step.status === 'complete' ? (
-                      <CheckIcon />
-                    ) : (
-                      <StepTypeIcon stepType={step.step_type} stepName={step.name} />
-                    )}
-                  </div>
-                  {/* Connector is always neutral slate — no green */}
-                  {!isLast && (
-                    <div
-                      className="w-0.5 flex-1 bg-slate-200"
-                      style={{ minHeight: 20 }}
-                    />
-                  )}
+              <div key={step.step_id} className="flex gap-3">
+                {/* Left: node + rail */}
+                <div className="flex flex-col items-center" style={{ width: 28 }}>
+                  <NodeCircle state={nodeState} number={step.sort_order} />
+                  {!isLastRi ? (
+                    <div style={{ width: 2, flex: 1, minHeight: 20, backgroundColor: railColor }} />
+                  ) : null}
                 </div>
 
-                {/* ── Step content ── */}
-                <div className={`min-w-0 flex-1 pt-1 ${isLast ? 'pb-0' : 'pb-6'}`}>
-                  {/* Step label + single cost·cadence chip */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                      Step {step.sort_order}
-                    </span>
+                {/* Right: content */}
+                <div className={`min-w-0 flex-1 pt-0.5 ${isLastRi ? 'pb-0' : 'pb-6'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <h3
+                      className={`text-sm font-semibold leading-snug ${
+                        step.status === 'locked' ? 'text-slate-400' : 'text-slate-900'
+                      }`}
+                    >
+                      {step.name}
+                    </h3>
                     {metaChip ? (
-                      <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                      <span className="mt-0.5 shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
                         {metaChip}
                       </span>
                     ) : null}
                   </div>
 
-                  {/* Step name — always slate, no authority accent */}
-                  <h3
-                    className={`mt-0.5 text-sm font-semibold leading-snug ${
-                      step.status === 'locked' ? 'text-slate-400' : 'text-slate-900'
-                    }`}
-                  >
-                    {step.name}
-                  </h3>
-
-                  {/* One-line description */}
                   {desc ? (
                     <p
                       className={`mt-0.5 text-sm ${
@@ -937,8 +1009,7 @@ export default function RecruitMenuPage() {
                     </p>
                   ) : null}
 
-                  {/* Tag row: Required | audience | "If applicable", authority chip, completed date */}
-                  <div className="mt-2 flex flex-wrap gap-1.5">
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {step.required ? (
                       <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
                         Required
@@ -952,21 +1023,14 @@ export default function RecruitMenuPage() {
                         If applicable
                       </span>
                     )}
-
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${authCls}`}
-                    >
+                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${authCls}`}>
                       {authLabel}
                     </span>
-
-                    {/* Completed date — neutral slate, not green */}
                     {completedDate ? (
                       <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500">
                         ✓ {completedDate}
                       </span>
                     ) : null}
-
-                    {/* Due date — rose if overdue, slate if upcoming */}
                     {dueDateStr ? (
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
@@ -978,7 +1042,6 @@ export default function RecruitMenuPage() {
                     ) : null}
                   </div>
 
-                  {/* Unlocks-after note */}
                   {prereq ? (
                     <p className="mt-1.5 text-xs text-slate-400">
                       Unlocks after:{' '}
@@ -986,7 +1049,6 @@ export default function RecruitMenuPage() {
                     </p>
                   ) : null}
 
-                  {/* Self-report action */}
                   <div className="mt-2">{renderStepAction(step)}</div>
                 </div>
               </div>
