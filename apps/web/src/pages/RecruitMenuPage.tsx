@@ -69,6 +69,13 @@ type RegistrationResponse = {
   steps: RegistrationStep[];
 };
 
+type FeeRow = {
+  step: RegistrationStep;
+  amount: number;
+  channel: 'refnet' | 'arbiter' | 'dboa';
+  pill: 'paid' | 'unpaid' | 'awaiting' | 'not_started';
+};
+
 // ── Description helpers ───────────────────────────────────────────────────────
 
 function getStepDescription(step: RegistrationStep): string | null {
@@ -116,6 +123,19 @@ function getCostText(step: RegistrationStep): string | null {
     if (entry?.amount) return `$${entry.amount}`;
   }
   if (c.fee != null) return `$${c.fee}`;
+  return null;
+}
+
+// Pricing takes precedence over fee — the dues step has a temporary fee:45
+// test override but its real price lives in config.pricing.
+function getStepFeeAmount(step: RegistrationStep, memberType: string | null): number | null {
+  const c = step.config;
+  if (!c) return null;
+  if (Array.isArray(c.pricing) && c.pricing.length > 0) {
+    const entry = c.pricing.find((p) => p.member_type === (memberType ?? 'new')) ?? c.pricing[0];
+    return entry?.amount != null ? Number(entry.amount) : null;
+  }
+  if (c.fee != null) return Number(c.fee);
   return null;
 }
 
@@ -558,17 +578,31 @@ export default function RecruitMenuPage() {
   const chapterParts = cycle.chapter.split(/\s[-–—]\s/);
   const fullChapterName = chapterParts.length > 1 ? chapterParts.slice(1).join(' — ') : cycle.chapter;
 
-  // First-year total fees from step configs (new official pricing)
-  const totalFees = sortedSteps.reduce((sum, step) => {
-    const c = step.config;
-    if (!c) return sum;
-    if (Array.isArray(c.pricing)) {
-      const entry = c.pricing.find((p) => p.member_type === 'new') ?? c.pricing[0];
-      if (entry?.amount) return sum + Number(entry.amount);
-    }
-    if (c.fee != null) return sum + Number(c.fee);
-    return sum;
-  }, 0);
+  const feeRows: FeeRow[] = sortedSteps
+    .filter((step) => {
+      const c = step.config;
+      return c != null && ((Array.isArray(c.pricing) && c.pricing.length > 0) || c.fee != null);
+    })
+    .map((step) => {
+      const amount = getStepFeeAmount(step, cycle.member_type) ?? 0;
+      const channel: FeeRow['channel'] =
+        step.step_type === 'payment'
+          ? 'refnet'
+          : step.authority === 'state' || !!step.config?.external_url
+            ? 'arbiter'
+            : 'dboa';
+      const pill: FeeRow['pill'] =
+        step.status === 'complete'
+          ? 'paid'
+          : step.status === 'locked'
+            ? 'not_started'
+            : step.step_type === 'payment'
+              ? 'unpaid'
+              : 'awaiting';
+      return { step, amount, channel, pill };
+    });
+  const paidFeeCount = feeRows.filter((r) => r.pill === 'paid').length;
+  const totalFees = feeRows.reduce((sum, r) => sum + r.amount, 0);
 
   const clearancePill =
     cycle.clearance_level === 'playoff'
@@ -674,6 +708,110 @@ export default function RecruitMenuPage() {
           <div className="mt-1.5 text-right text-xs font-medium text-slate-400">{progressPct}%</div>
         </div>
       </Card>
+
+      {/* ── Fees card ── */}
+      {feeRows.length > 0 ? (
+        <Card className="mt-4 p-5 sm:p-6">
+          <h3 className="text-base font-semibold text-slate-900">Your fees</h3>
+
+          {/* Column headers */}
+          <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 border-b border-slate-200 pb-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Item</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Amount</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</span>
+          </div>
+
+          {/* Fee rows */}
+          {feeRows.map(({ step, amount, channel, pill }) => {
+            const isChapter = step.authority === 'chapter';
+            const tileCls =
+              step.status === 'complete'
+                ? 'bg-slate-900 text-white'
+                : step.status === 'available'
+                  ? isChapter
+                    ? 'bg-emerald-50 text-emerald-600'
+                    : 'bg-blue-50 text-blue-600'
+                  : 'bg-slate-100 text-slate-300';
+            const channelDotCls = channel === 'arbiter' ? 'bg-blue-500' : 'bg-emerald-500';
+            const channelText =
+              channel === 'refnet'
+                ? 'Paid here in RefNet · card'
+                : channel === 'arbiter'
+                  ? 'Paid on ArbiterSports · confirmed automatically'
+                  : 'Paid to DBOA';
+            const pillStyle =
+              pill === 'paid'
+                ? { bg: '#dcfce7', color: '#16a34a', label: 'Paid' }
+                : pill === 'unpaid'
+                  ? { bg: '#ffe4e6', color: '#e11d48', label: 'Unpaid' }
+                  : pill === 'awaiting'
+                    ? { bg: '#fef3c7', color: '#b45309', label: 'Awaiting confirm' }
+                    : { bg: '#f1f5f9', color: '#64748b', label: 'Not started' };
+
+            return (
+              <div
+                key={step.step_id}
+                className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 border-b border-slate-100 py-3 last:border-b-0"
+              >
+                {/* Icon + name + channel */}
+                <div className="flex min-w-0 items-center gap-3">
+                  <div
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${tileCls}`}
+                  >
+                    {step.status === 'complete' ? (
+                      <CheckIcon />
+                    ) : (
+                      <StepTypeIcon stepType={step.step_type} stepName={step.name} />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">{step.name}</p>
+                    <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${channelDotCls}`} />
+                      {channelText}
+                    </p>
+                  </div>
+                </div>
+                {/* Amount */}
+                <span className="text-sm font-semibold tabular-nums text-slate-900">
+                  ${amount}
+                </span>
+                {/* Status pill */}
+                <span
+                  className="whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                  style={{ backgroundColor: pillStyle.bg, color: pillStyle.color }}
+                >
+                  {pillStyle.label}
+                </span>
+              </div>
+            );
+          })}
+
+          {/* First-year total */}
+          <div className="mt-2 border-t border-slate-200 pt-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold text-slate-900">First-year total</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {paidFeeCount} paid {paidFeeCount === 1 ? 'item' : 'items'} · other steps have
+                  no fee
+                </p>
+              </div>
+              <p className="shrink-0 text-xl font-bold text-slate-900">${totalFees}</p>
+            </div>
+          </div>
+
+          {/* How-it-works note */}
+          <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
+            <p className="text-xs leading-relaxed text-slate-500">
+              <span className="font-semibold text-slate-700">How this works:</span>{' '}
+              Only the chapter dues are paid inside RefNet by card. State dues are paid on
+              ArbiterSports and confirmed here automatically once your state eligibility clears.
+              The training camp fee is collected by DBOA. The remaining steps carry no fee.
+            </p>
+          </div>
+        </Card>
+      ) : null}
 
       {/* ── Legend ── */}
       <div className="mt-4 flex gap-5 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
