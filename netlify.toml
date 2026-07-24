@@ -1,7 +1,7 @@
 [build]
   base    = "apps/web"
   command = "npm run build"
-  publish = "apps/web/dist"
+  publish = "dist"
 
 # Required: serve index.html for all routes so client-side paths like
 # /board, /command, and /r/:token work on direct open and refresh.
