@@ -1,28 +1,36 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../database.types';
+import { supabase } from '../supabaseClient';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
-type HandlerFn = (payload: Record<string, unknown>) => void | Promise<void>;
+type Handler = (row: Record<string, unknown>) => void;
 
-const handlers = new Map<string, HandlerFn[]>();
+const handlers: Record<string, Handler> = {};
 
-export function registerHandler(eventType: string, fn: HandlerFn): void {
-  const existing = handlers.get(eventType) ?? [];
-  handlers.set(eventType, [...existing, fn]);
+export function registerDomainEventHandler(eventType: string, fn: Handler): void {
+  handlers[eventType] = fn;
 }
 
-export function startDomainEventConsumer(supabase: SupabaseClient<Database>): void {
-  supabase
+let channel: RealtimeChannel | null = null;
+
+export function startDomainEventConsumer(): RealtimeChannel {
+  if (channel) return channel; // StrictMode / re-mount guard
+  channel = supabase
     .channel('domain-events')
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'domain_event' },
-      (change) => {
-        const row = change.new as { event_type: string; payload: Record<string, unknown> };
-        const fns = handlers.get(row.event_type) ?? [];
-        for (const fn of fns) {
-          Promise.resolve(fn(row.payload)).catch(console.error);
-        }
-      }
-    )
+      (payload) => {
+        const row = payload.new as { event_type?: string };
+        const fn = row?.event_type ? handlers[row.event_type] : undefined;
+        if (fn) fn(payload.new as Record<string, unknown>);
+      },
+    ) // .on() must come BEFORE .subscribe()
     .subscribe();
+  return channel;
+}
+
+export function stopDomainEventConsumer(): void {
+  if (channel) {
+    supabase.removeChannel(channel);
+    channel = null;
+  }
 }

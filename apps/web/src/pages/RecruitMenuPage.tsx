@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Card } from '../components/ui';
-import { registerHandler } from '../lib/domainEvents';
+import { registerDomainEventHandler } from '../lib/domainEvents';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -343,7 +343,7 @@ export default function RecruitMenuPage() {
   const paymentSuccess = searchParams.get('payment') === 'success';
 
   useEffect(() => {
-    registerHandler('dues.paid', () => {
+    registerDomainEventHandler('dues.paid', () => {
       window.location.reload();
     });
   }, []);
