@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Card } from '../components/ui';
+import { registerHandler } from '../lib/domainEvents';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -330,6 +331,7 @@ async function mergeAuthorityData(
 
 export default function RecruitMenuPage() {
   const { token } = useParams();
+  const [searchParams] = useSearchParams();
   const [registration, setRegistration] = useState<RegistrationResponse | null>(null);
   const [chapterLogo, setChapterLogo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -337,6 +339,14 @@ export default function RecruitMenuPage() {
   const [busyStep, setBusyStep] = useState<string | null>(null);
   const [assessmentScores, setAssessmentScores] = useState<Record<string, string>>({});
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const paymentSuccess = searchParams.get('payment') === 'success';
+
+  useEffect(() => {
+    registerHandler('dues.paid', () => {
+      window.location.reload();
+    });
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -394,9 +404,38 @@ export default function RecruitMenuPage() {
     setBusyStep(null);
   };
 
+  const handlePayDues = async (stepId: string) => {
+    if (!token) return;
+    setPaymentLoading(true);
+    setError(null);
+    const { data, error: fnError } = await supabase.functions.invoke('create-dues-checkout', {
+      body: { token, step_id: stepId },
+    });
+    if (fnError || !data?.url) {
+      setError('Unable to start payment. Please try again.');
+      setPaymentLoading(false);
+      return;
+    }
+    window.location.href = data.url as string;
+  };
+
   const renderStepAction = (step: RegistrationStep) => {
     const scoreValue = assessmentScores[step.step_id] ?? '';
     const isAssessment = step.step_type === 'assessment';
+
+    if (step.step_type === 'payment' && step.status === 'available') {
+      const costText = getCostText(step);
+      return (
+        <button
+          type="button"
+          disabled={paymentLoading}
+          onClick={() => handlePayDues(step.step_id)}
+          className={`mt-1 ${primaryBtn}`}
+        >
+          {paymentLoading ? 'Redirecting to payment…' : `Pay${costText ? ` ${costText}` : ''}`}
+        </button>
+      );
+    }
     const score = parseInt(scoreValue, 10);
 
     if (step.status === 'available' && step.completion_mode === 'self_report') {
@@ -577,6 +616,12 @@ export default function RecruitMenuPage() {
           </div>
         </div>
       </header>
+
+      {paymentSuccess ? (
+        <div className="mt-4 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-700">
+          Payment confirmed — your dues step has been marked complete.
+        </div>
+      ) : null}
 
       {/* ── Summary card ── */}
       <Card className="mt-6 p-5 sm:p-6">

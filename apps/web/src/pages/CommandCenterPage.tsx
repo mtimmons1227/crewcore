@@ -145,14 +145,14 @@ export default function CommandCenterPage() {
       setPipelineError(null);
 
       const cyclesResponse = await supabase
-        .from<'registration_cycle', PipelineCycle>('registration_cycle')
+        .from('registration_cycle')
         .select(
           'id,person_id,chapter_id,sport_id,season_id,member_type,status,clearance_level,cleared_at,access_token,created_at,person:person_id(full_name,email,phone),step_completion!cycle_id(id,workflow_step_id,status,completed_at,due_at)'
         )
         .order('created_at', { ascending: false });
 
       const stepsResponse = await supabase
-        .from<'workflow_step', WorkflowStep>('workflow_step')
+        .from('workflow_step')
         .select('id,name,sort_order,required')
         .order('sort_order', { ascending: true });
 

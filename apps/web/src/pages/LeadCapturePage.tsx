@@ -54,6 +54,7 @@ export default function LeadCapturePage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [registrationLoading, setRegistrationLoading] = useState(false);
+  const [registrationSent, setRegistrationSent] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -142,21 +143,22 @@ export default function LeadCapturePage() {
     setRegistrationLoading(true);
     setError(null);
 
-    const { data, error: rpcError } = await supabase.rpc('start_registration', {
-      p_email: form.email.trim(),
-      p_chapter_id: chapter.id,
-      p_sport_id: sport.id,
+    const { error: fnError } = await supabase.functions.invoke('request-magic-link', {
+      body: {
+        email: form.email.trim(),
+        chapter_id: chapter.id,
+        sport_id: sport.id,
+      },
     });
 
-    if (rpcError || !data) {
-      setError('Unable to start registration right now. Please try again.');
+    if (fnError) {
+      setError('Unable to send registration link. Please try again.');
       setRegistrationLoading(false);
       return;
     }
 
-    const registrationToken = data as string;
-    window.localStorage.setItem('recruit_registration_token', registrationToken);
-    window.location.href = `/r/${registrationToken}`;
+    setRegistrationSent(true);
+    setRegistrationLoading(false);
   };
 
   const chapterName = chapter?.name ?? 'DBOA';
@@ -234,16 +236,22 @@ export default function LeadCapturePage() {
                 ))}
               </ol>
             ) : null}
-            <div className="mt-5">
-              <button
-                type="button"
-                onClick={handleStartRegistration}
-                disabled={registrationLoading}
-                className={primaryBtn}
-              >
-                {registrationLoading ? 'Starting registration…' : 'Start my registration'}
-              </button>
-            </div>
+            {registrationSent ? (
+              <div className="mt-5 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-700">
+                Check your email at <strong>{form.email}</strong> — your registration link is on its way.
+              </div>
+            ) : (
+              <div className="mt-5">
+                <button
+                  type="button"
+                  onClick={handleStartRegistration}
+                  disabled={registrationLoading}
+                  className={primaryBtn}
+                >
+                  {registrationLoading ? 'Sending link…' : 'Start my registration'}
+                </button>
+              </div>
+            )}
           </Card>
         </>
       ) : (

@@ -1,10 +1,18 @@
+import { useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import LeadCapturePage from './pages/LeadCapturePage';
 import CommandCenterPage from './pages/CommandCenterPage';
 import RecruitMenuPage from './pages/RecruitMenuPage';
+import { supabase } from './supabaseClient';
+import { startDomainEventConsumer } from './lib/domainEvents';
 
 function App() {
   const location = useLocation();
+
+  useEffect(() => {
+    startDomainEventConsumer(supabase);
+  }, []);
+
   const isCommandCenter = location.pathname === '/command';
   const isLeadCapture = location.pathname === '/';
 
