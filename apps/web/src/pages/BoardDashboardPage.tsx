@@ -37,7 +37,7 @@ type BoardRoster = {
     dues_paid: number;
     cleared: number;
     attention: number;
-    dues_collected: number; // in cents (matches Stripe)
+    dues_collected: number; // in dollars (RPC returns dollars, not cents)
   };
   recruits: Recruit[];
 };
@@ -66,10 +66,8 @@ function formatActivity(date: string | null): string {
   return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function formatDues(cents: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-    cents / 100,
-  );
+function formatDues(dollars: number): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(dollars);
 }
 
 // ── Pill ─────────────────────────────────────────────────────────────────────
