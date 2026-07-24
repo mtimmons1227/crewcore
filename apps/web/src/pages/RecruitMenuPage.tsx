@@ -594,13 +594,11 @@ export default function RecruitMenuPage() {
       const pill: FeeRow['pill'] =
         step.status === 'complete'
           ? 'paid'
-          : step.status === 'locked'
-            ? 'not_started'
-            : step.step_type === 'payment'
-              ? 'unpaid'
-              : step.status === 'available'
-                ? 'awaiting'
-                : 'not_started';
+          : channel === 'refnet'
+            ? 'unpaid'
+            : channel === 'arbiter'
+              ? 'awaiting'
+              : 'not_started';
       return { step, amount, channel, pill };
     });
   const paidFeeCount = feeRows.filter((r) => r.pill === 'paid').length;
