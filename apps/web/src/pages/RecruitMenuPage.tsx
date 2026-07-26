@@ -641,6 +641,17 @@ export default function RecruitMenuPage() {
   const chapterParts = cycle.chapter.split(/\s[-–—]\s/);
   const fullChapterName = chapterParts.length > 1 ? chapterParts.slice(1).join(' — ') : cycle.chapter;
 
+  const pathHeadline =
+    cycle.member_type === 'returning'
+      ? "Welcome back — let's get you renewed for the season."
+      : cycle.member_type === 'transfer'
+        ? 'Welcome to DBOA.'
+        : 'Your path to officiating';
+  const pathSub =
+    cycle.member_type === 'transfer'
+      ? "We've recognized what you already hold — here's what's left to join us locally."
+      : null;
+
   const feeRows: FeeRow[] = sortedSteps
     .filter((step) => {
       const c = step.config;
@@ -725,7 +736,10 @@ export default function RecruitMenuPage() {
             <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
               CrewCore Recruit
             </div>
-            <div className="text-xl font-semibold">Your path to officiating</div>
+            <div className="text-xl font-semibold leading-snug">{pathHeadline}</div>
+            {pathSub ? (
+              <div className="mt-0.5 text-sm text-slate-300">{pathSub}</div>
+            ) : null}
             <div className="mt-1 text-sm text-slate-400">
               {fullChapterName} · {cycle.season} season
             </div>

@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   try {
-    const { email, chapter_id, sport_id } = await req.json();
+    const { email, chapter_id, sport_id, member_type } = await req.json();
     if (!email || !chapter_id || !sport_id) {
       return json({ error: 'Missing required fields' }, 400);
     }
@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
       p_email: email,
       p_chapter_id: chapter_id,
       p_sport_id: sport_id,
+      p_member_type: member_type ?? 'new',
     });
     if (rpcError) return json({ error: rpcError.message }, 400);
 

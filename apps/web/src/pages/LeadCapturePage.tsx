@@ -35,6 +35,26 @@ type LeadFormState = {
   email: string;
 };
 
+type MemberType = 'new' | 'returning' | 'transfer';
+
+const PATH_OPTIONS: { value: MemberType; label: string; desc: string }[] = [
+  {
+    value: 'new',
+    label: 'New to officiating',
+    desc: 'First time as an official — complete onboarding from start.',
+  },
+  {
+    value: 'returning',
+    label: 'Returning official',
+    desc: 'Renewing with DBOA for the new season.',
+  },
+  {
+    value: 'transfer',
+    label: 'Transferring in',
+    desc: 'Already certified — joining DBOA from another chapter.',
+  },
+];
+
 const DBOA_CHAPTER_SLUG = 'DBOA';
 const BASKETBALL_SPORT_NAME = 'Basketball';
 
@@ -55,6 +75,7 @@ export default function LeadCapturePage() {
   const [error, setError] = useState<string | null>(null);
   const [registrationLoading, setRegistrationLoading] = useState(false);
   const [registrationSent, setRegistrationSent] = useState(false);
+  const [memberType, setMemberType] = useState<MemberType | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -148,6 +169,7 @@ export default function LeadCapturePage() {
         email: form.email.trim(),
         chapter_id: chapter.id,
         sport_id: sport.id,
+        member_type: memberType ?? 'new',
       },
     });
 
@@ -211,6 +233,58 @@ export default function LeadCapturePage() {
             </p>
           </Card>
 
+          {/* ── Path selection ── */}
+          <Card className="mt-4 p-6">
+            <h3 className="text-base font-semibold text-slate-900">Which best describes you?</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              We'll build your checklist around your path.
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              {PATH_OPTIONS.map((opt) => {
+                const selected = memberType === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setMemberType(opt.value)}
+                    className="flex items-start gap-3 rounded-2xl border p-4 text-left transition"
+                    style={{
+                      backgroundColor: selected ? '#0f172a' : 'white',
+                      borderColor: selected ? '#0f172a' : '#e2e8f0',
+                    }}
+                  >
+                    <span
+                      className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border"
+                      style={{
+                        borderColor: selected ? 'white' : '#cbd5e1',
+                        backgroundColor: 'transparent',
+                      }}
+                    >
+                      {selected ? (
+                        <span className="h-2 w-2 rounded-full bg-white" />
+                      ) : null}
+                    </span>
+                    <div>
+                      <p
+                        className="text-sm font-semibold"
+                        style={{ color: selected ? 'white' : '#0f172a' }}
+                      >
+                        {opt.label}
+                      </p>
+                      <p
+                        className="mt-0.5 text-xs"
+                        style={{ color: selected ? '#94a3b8' : '#64748b' }}
+                      >
+                        {opt.desc}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+
+          {/* ── What to expect + start ── */}
           <Card className="mt-4 p-6">
             <h3 className="text-lg font-semibold text-slate-900">What to expect next</h3>
             <p className="mt-1 text-sm text-slate-500">
@@ -245,11 +319,14 @@ export default function LeadCapturePage() {
                 <button
                   type="button"
                   onClick={handleStartRegistration}
-                  disabled={registrationLoading}
+                  disabled={registrationLoading || !memberType}
                   className={primaryBtn}
                 >
                   {registrationLoading ? 'Sending link…' : 'Start my registration'}
                 </button>
+                {!memberType ? (
+                  <p className="mt-2 text-xs text-slate-400">Select your path above to continue.</p>
+                ) : null}
               </div>
             )}
           </Card>
