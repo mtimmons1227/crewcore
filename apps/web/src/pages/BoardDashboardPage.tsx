@@ -14,7 +14,7 @@ const STORAGE_KEY = 'board_unlocked_v1';
 
 type StateStatus = 'complete' | 'available' | 'in_progress' | 'locked' | null;
 type OverallStatus = 'in_progress' | 'stalled' | 'complete';
-type FilterKey = 'all' | OverallStatus;
+type FilterKey = 'all' | OverallStatus | 'cleared_to_work';
 
 type Recruit = {
   full_name: string;
@@ -25,24 +25,33 @@ type Recruit = {
   complete_steps: number;
   pct: number;
   last_activity: string | null;
+  days_idle: number;
+  open_now: number;
+  next_step: string | null;
   dues_paid: boolean;
   state_status: StateStatus;
   status: OverallStatus;
+  cleared_to_work: boolean;
+  fg_done: number;
+  fg_total: number;
+  overdue: boolean;
 };
 
 type BoardRoster = {
   chapter: { slug: string; name: string };
+  settings: { stalled_days: number };
   kpis: {
     recruits: number;
     dues_paid: number;
     cleared: number;
+    cleared_to_work: number;
     attention: number;
+    stalled: number;
+    overdue: number;
     dues_collected: number; // in dollars (RPC returns dollars, not cents)
   };
   recruits: Recruit[];
 };
-
-// get_board_roster is not yet in the generated DB types.
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -61,16 +70,11 @@ function getAvatarColor(name: string): string {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
-function formatActivity(date: string | null): string {
-  if (!date) return 'No activity';
-  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
 function formatDues(dollars: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(dollars);
 }
 
-// ── Pill ─────────────────────────────────────────────────────────────────────
+// ── Pills ─────────────────────────────────────────────────────────────────────
 
 function Pill({ label, bg, color }: { label: string; bg: string; color: string }) {
   return (
@@ -86,8 +90,8 @@ function Pill({ label, bg, color }: { label: string; bg: string; color: string }
 function StatusPill({ status }: { status: OverallStatus }) {
   const map: Record<OverallStatus, { label: string; bg: string; color: string }> = {
     in_progress: { label: 'In progress', bg: '#dbeafe', color: '#2563eb' },
-    stalled: { label: 'Stalled', bg: '#ffe4e6', color: '#e11d48' },
-    complete: { label: 'Complete', bg: '#dcfce7', color: '#16a34a' },
+    stalled:     { label: 'Stalled',     bg: '#fef3c7', color: '#92400e' },
+    complete:    { label: 'Complete',    bg: '#dcfce7', color: '#16a34a' },
   };
   const { label, bg, color } = map[status];
   return <Pill label={label} bg={bg} color={color} />;
@@ -110,9 +114,9 @@ function StateRegPill({ stateStatus }: { stateStatus: StateStatus }) {
 
 function MemberTypePill({ type }: { type: string }) {
   const map: Record<string, { label: string; bg: string; color: string }> = {
-    new: { label: 'New', bg: '#dbeafe', color: '#2563eb' },
+    new:       { label: 'New',       bg: '#dbeafe', color: '#2563eb' },
     returning: { label: 'Returning', bg: '#dcfce7', color: '#16a34a' },
-    transfer: { label: 'Transfer', bg: '#fef3c7', color: '#b45309' },
+    transfer:  { label: 'Transfer',  bg: '#fef3c7', color: '#b45309' },
   };
   const s = map[type] ?? { label: type, bg: '#f1f5f9', color: '#64748b' };
   return <Pill label={s.label} bg={s.bg} color={s.color} />;
@@ -230,17 +234,23 @@ export default function BoardDashboardPage() {
   // ── Derived values ─────────────────────────────────────────────────────────
 
   const { chapter, kpis, recruits } = roster;
+  const stalledDays = roster.settings?.stalled_days ?? 5;
 
   const counts: Record<FilterKey, number> = {
-    all: recruits.length,
-    in_progress: recruits.filter((r) => r.status === 'in_progress').length,
-    stalled: recruits.filter((r) => r.status === 'stalled').length,
-    complete: recruits.filter((r) => r.status === 'complete').length,
+    all:            recruits.length,
+    in_progress:    recruits.filter((r) => r.status === 'in_progress').length,
+    stalled:        recruits.filter((r) => r.status === 'stalled').length,
+    complete:       recruits.filter((r) => r.status === 'complete').length,
+    cleared_to_work: recruits.filter((r) => r.cleared_to_work).length,
   };
 
   const filtered = recruits
     .filter((r) => {
-      if (filter !== 'all' && r.status !== filter) return false;
+      if (filter === 'cleared_to_work') {
+        if (!r.cleared_to_work) return false;
+      } else if (filter !== 'all' && r.status !== filter) {
+        return false;
+      }
       if (search) {
         const q = search.toLowerCase();
         return r.full_name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q);
@@ -251,23 +261,33 @@ export default function BoardDashboardPage() {
       sort === 'name' ? a.full_name.localeCompare(b.full_name) : b.pct - a.pct,
     );
 
-  const kpiCards = [
-    { label: 'Recruits', value: String(kpis.recruits), cls: 'text-slate-900' },
-    { label: 'Dues paid', value: `${kpis.dues_paid} / ${kpis.recruits}`, cls: 'text-slate-900' },
-    { label: 'Fully cleared', value: `${kpis.cleared} / ${kpis.recruits}`, cls: 'text-slate-900' },
+  // KPI cards — "Cleared to Work" replaces "Fully Cleared" as the primary gate metric
+  type KpiCard = { label: string; value: string; cls: string; sub?: string; amber?: boolean };
+  const kpiCards: KpiCard[] = [
+    { label: 'Recruits',         value: String(kpis.recruits),                                cls: 'text-slate-900' },
+    { label: 'Dues paid',        value: `${kpis.dues_paid} / ${kpis.recruits}`,               cls: 'text-slate-900' },
+    {
+      label: 'Cleared to work',
+      value: `${kpis.cleared_to_work} / ${kpis.recruits}`,
+      cls: kpis.cleared_to_work > 0 ? 'text-emerald-600' : 'text-slate-900',
+      sub: 'ready for first paid game',
+    },
     {
       label: 'Needs attention',
       value: String(kpis.attention),
-      cls: kpis.attention > 0 ? 'text-rose-600' : 'text-slate-900',
+      cls: kpis.attention > 0 ? 'text-amber-700' : 'text-slate-900',
+      sub: kpis.attention > 0 ? `No activity in ${stalledDays}+ days` : undefined,
+      amber: kpis.attention > 0,
     },
-    { label: 'Dues collected', value: formatDues(kpis.dues_collected), cls: 'text-emerald-600' },
+    { label: 'Dues collected',   value: formatDues(kpis.dues_collected),                       cls: 'text-emerald-600' },
   ];
 
   const filterChips: { key: FilterKey; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'in_progress', label: 'In progress' },
-    { key: 'stalled', label: 'Stalled' },
-    { key: 'complete', label: 'Complete' },
+    { key: 'all',            label: 'All' },
+    { key: 'in_progress',    label: 'In progress' },
+    { key: 'stalled',        label: 'Stalled' },
+    { key: 'cleared_to_work', label: 'Cleared to work' },
+    { key: 'complete',       label: 'Complete' },
   ];
 
   const TABLE_COLS = [
@@ -277,7 +297,8 @@ export default function BoardDashboardPage() {
     'Dues',
     'State reg.',
     'Status',
-    'Last activity',
+    'Next step',
+    'Idle',
     'View',
   ];
 
@@ -304,12 +325,19 @@ export default function BoardDashboardPage() {
         {kpiCards.map((k) => (
           <div
             key={k.label}
-            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+            className="rounded-2xl border p-4 shadow-sm"
+            style={{
+              backgroundColor: k.amber ? '#fffbeb' : 'white',
+              borderColor: k.amber ? '#fcd34d' : '#e2e8f0',
+            }}
           >
             <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
               {k.label}
             </div>
             <div className={`mt-2 text-2xl font-semibold ${k.cls}`}>{k.value}</div>
+            {k.sub ? (
+              <div className="mt-0.5 text-xs text-slate-400">{k.sub}</div>
+            ) : null}
           </div>
         ))}
       </div>
@@ -365,7 +393,7 @@ export default function BoardDashboardPage() {
 
         {/* Table */}
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[780px] border-collapse text-sm">
+          <table className="w-full min-w-[900px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-slate-200">
                 {/* Indicator stripe — no header */}
@@ -400,14 +428,14 @@ export default function BoardDashboardPage() {
                     <tr
                       key={r.access_token}
                       className="border-b border-slate-100 last:border-b-0"
-                      style={{ backgroundColor: isStalled ? '#fff7f8' : 'transparent' }}
+                      style={{ backgroundColor: isStalled ? '#fffbeb' : 'transparent' }}
                     >
-                      {/* 3 px rose left-border stripe on stalled rows */}
+                      {/* 3 px left-border stripe: amber on stalled, transparent otherwise */}
                       <td
                         style={{
                           width: 3,
                           padding: 0,
-                          backgroundColor: isStalled ? '#e11d48' : 'transparent',
+                          backgroundColor: isStalled ? '#d97706' : 'transparent',
                         }}
                       />
 
@@ -432,19 +460,33 @@ export default function BoardDashboardPage() {
                         <MemberTypePill type={r.member_type} />
                       </td>
 
-                      {/* Progress */}
+                      {/* Progress — shows overall bar + first-game gate */}
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200">
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{ width: `${r.pct}%`, backgroundColor: barColor }}
-                            />
+                        {r.cleared_to_work ? (
+                          <Pill label="Cleared to work ✅" bg="#dcfce7" color="#065f46" />
+                        ) : (
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-2">
+                              <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200">
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{ width: `${r.pct}%`, backgroundColor: barColor }}
+                                />
+                              </div>
+                              <span className="tabular-nums text-xs text-slate-500">
+                                {r.complete_steps}/{r.total_steps}
+                              </span>
+                            </div>
+                            {r.fg_total > 0 ? (
+                              <span
+                                className="w-fit rounded-full px-2 py-0.5 text-xs font-semibold"
+                                style={{ backgroundColor: '#dbeafe', color: '#1d4ed8' }}
+                              >
+                                First game: {r.fg_done}/{r.fg_total}
+                              </span>
+                            ) : null}
                           </div>
-                          <span className="tabular-nums text-xs text-slate-500">
-                            {r.complete_steps}/{r.total_steps}
-                          </span>
-                        </div>
+                        )}
                       </td>
 
                       {/* Dues */}
@@ -457,14 +499,40 @@ export default function BoardDashboardPage() {
                         <StateRegPill stateStatus={r.state_status} />
                       </td>
 
-                      {/* Status */}
+                      {/* Status — base pill + stalled badge + overdue badge */}
                       <td className="px-4 py-3">
-                        <StatusPill status={r.status} />
+                        <div className="flex flex-wrap gap-1">
+                          <StatusPill status={r.status} />
+                          {isStalled ? (
+                            <Pill
+                              label={`Stalled · ${r.days_idle}d`}
+                              bg="#fef3c7"
+                              color="#92400e"
+                            />
+                          ) : null}
+                          {r.overdue ? (
+                            <Pill label="Overdue" bg="#ffe4e6" color="#e11d48" />
+                          ) : null}
+                        </div>
                       </td>
 
-                      {/* Last activity */}
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-500">
-                        {formatActivity(r.last_activity)}
+                      {/* Next step */}
+                      <td className="max-w-[200px] px-4 py-3">
+                        <p className="truncate text-sm text-slate-700">
+                          {r.next_step ?? '—'}
+                        </p>
+                      </td>
+
+                      {/* Idle */}
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <span
+                          className="text-sm font-medium"
+                          style={{
+                            color: r.days_idle > stalledDays ? '#b45309' : '#94a3b8',
+                          }}
+                        >
+                          {r.days_idle}d
+                        </span>
                       </td>
 
                       {/* View */}

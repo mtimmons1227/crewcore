@@ -746,7 +746,7 @@ export default function RecruitMenuPage() {
           <button
             type="button"
             onClick={() => setFeesOpen((o) => !o)}
-            className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left"
+            className="flex w-full items-center justify-between gap-3 bg-transparent px-4 py-3.5 text-left"
             aria-expanded={feesOpen}
           >
             <div className="min-w-0">
@@ -755,8 +755,11 @@ export default function RecruitMenuPage() {
                 {remainingFees > 0 ? ` · $${remainingFees} left` : ' · fully paid'}
               </p>
               {earnBackGames > 0 ? (
-                <p className="mt-0.5 text-xs text-emerald-600">
-                  Ref ~{earnBackGames} games to earn it back
+                <p
+                  className="mt-1.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                  style={{ backgroundColor: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0' }}
+                >
+                  💰 Earn it back in ~{earnBackGames} games — then every whistle is profit.
                 </p>
               ) : null}
             </div>
