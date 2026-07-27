@@ -418,10 +418,48 @@ function SaveLinkModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        <p className="mt-3 text-xs text-slate-400">
-          <span className="hidden sm:inline">Press Ctrl / Cmd + D to bookmark this page.</span>
-          <span className="sm:hidden">Add this page to your home screen to bookmark it.</span>
-        </p>
+        {/* Prominent bookmark instruction */}
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-sm font-semibold text-slate-900">How to get back to your registration</p>
+
+          {/* Desktop */}
+          <ul className="mt-2 hidden list-none space-y-1.5 text-sm text-slate-700 sm:block">
+            <li className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+              <span>1. Press</span>
+              {/Mac/i.test(navigator.platform ?? '') ? (
+                <>
+                  <kbd className="rounded border border-slate-300 bg-white px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-700">⌘</kbd>
+                  <span>+</span>
+                  <kbd className="rounded border border-slate-300 bg-white px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-700">D</kbd>
+                </>
+              ) : (
+                <>
+                  <kbd className="rounded border border-slate-300 bg-white px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-700">Ctrl</kbd>
+                  <span>+</span>
+                  <kbd className="rounded border border-slate-300 bg-white px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-700">D</kbd>
+                </>
+              )}
+              <span>to bookmark this page, or</span>
+            </li>
+            <li>
+              2. Keep the email we sent you — subject{' '}
+              <span className="font-semibold">&ldquo;Your CrewCore registration link — save this email.&rdquo;</span>
+            </li>
+          </ul>
+
+          {/* Mobile */}
+          <ul className="mt-2 list-none space-y-1.5 text-sm text-slate-700 sm:hidden">
+            <li>1. Tap your browser&apos;s Share button → Add to Home Screen, or</li>
+            <li>
+              2. Keep the email we sent you — subject{' '}
+              <span className="font-semibold">&ldquo;Your CrewCore registration link — save this email.&rdquo;</span>
+            </li>
+          </ul>
+
+          <p className="mt-2.5 text-sm font-semibold text-slate-900">
+            Use it every time you need to get back into your registration.
+          </p>
+        </div>
 
         <button
           type="button"
@@ -486,7 +524,8 @@ export default function RecruitMenuPage() {
   const { token } = useParams();
   const [searchParams] = useSearchParams();
   const location = useLocation();
-  const emailSent = (location.state as { emailSent?: boolean } | null)?.emailSent === true;
+  const locState = location.state as { emailSent?: boolean; justSubmitted?: boolean } | null;
+  const emailSent = locState?.emailSent === true;
   const [registration, setRegistration] = useState<RegistrationResponse | null>(null);
   const [chapterLogo, setChapterLogo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -496,7 +535,7 @@ export default function RecruitMenuPage() {
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [feesOpen, setFeesOpen] = useState(false);
-  const [showModal, setShowModal] = useState(true);
+  const [showModal, setShowModal] = useState(Boolean(locState?.justSubmitted));
   const paymentSuccess = searchParams.get('payment') === 'success';
 
   useEffect(() => {

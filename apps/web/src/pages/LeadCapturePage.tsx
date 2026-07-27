@@ -197,7 +197,7 @@ export default function LeadCapturePage() {
       },
     });
 
-    navigate(`/r/${accessToken}`, { state: { emailSent: true } });
+    navigate(`/r/${accessToken}`, { state: { emailSent: true, justSubmitted: true } });
   };
 
   const chapterName = chapter?.name ?? 'DBOA';
