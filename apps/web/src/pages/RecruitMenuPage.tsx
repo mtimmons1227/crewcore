@@ -365,6 +365,76 @@ function NodeCircle({ state, number }: { state: 'complete' | 'current' | 'locked
   );
 }
 
+// ── Save-link modal ───────────────────────────────────────────────────────────
+
+function SaveLinkModal({ onClose }: { onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const pageUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(pageUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable — input onFocus selects as fallback
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}
+    >
+      <div className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl">
+        <h2 className="text-lg font-semibold text-slate-900">Save your way back in</h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+          Your personal registration link is in your email — subject{' '}
+          <span className="font-semibold">
+            &ldquo;Your CrewCore registration link — save this email.&rdquo;
+          </span>{' '}
+          Keep that email, or bookmark this page, and you can return to your checklist anytime.
+        </p>
+
+        <div className="mt-4">
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Your link
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              readOnly
+              value={pageUrl}
+              onFocus={(e) => e.currentTarget.select()}
+              className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+            >
+              {copied ? 'Copied!' : 'Copy link'}
+            </button>
+          </div>
+        </div>
+
+        <p className="mt-3 text-xs text-slate-400">
+          <span className="hidden sm:inline">Press Ctrl / Cmd + D to bookmark this page.</span>
+          <span className="sm:hidden">Add this page to your home screen to bookmark it.</span>
+        </p>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Shared class constants ────────────────────────────────────────────────────
 
 const inputCls =
@@ -426,6 +496,7 @@ export default function RecruitMenuPage() {
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [feesOpen, setFeesOpen] = useState(false);
+  const [showModal, setShowModal] = useState(true);
   const paymentSuccess = searchParams.get('payment') === 'success';
 
   useEffect(() => {
@@ -724,6 +795,9 @@ export default function RecruitMenuPage() {
 
   return (
     <div>
+      {/* ── Save-link modal (every visit) ── */}
+      {showModal ? <SaveLinkModal onClose={() => setShowModal(false)} /> : null}
+
       {/* ── Header ── */}
       <header className="rounded-panel bg-slate-900 px-5 py-4 text-white shadow-soft sm:px-6">
         <div className="flex items-center gap-3">
@@ -762,6 +836,12 @@ export default function RecruitMenuPage() {
           We also emailed your registration link — use it to come back anytime.
         </div>
       ) : null}
+
+      {/* ── Persistent link reminder (always visible) ── */}
+      <p className="mt-3 flex items-start gap-1.5 text-xs text-slate-500">
+        <span aria-hidden="true">🔖</span>
+        This page is your saved progress — bookmark it, or use the link we emailed you to get back here.
+      </p>
 
       {/* ── 2. Fees strip (compact, collapsible) ── */}
       {feeRows.length > 0 ? (
