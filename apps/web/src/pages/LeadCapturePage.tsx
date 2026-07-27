@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Card } from '../components/ui';
 
@@ -74,8 +75,8 @@ export default function LeadCapturePage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [registrationLoading, setRegistrationLoading] = useState(false);
-  const [registrationSent, setRegistrationSent] = useState(false);
   const [memberType, setMemberType] = useState<MemberType | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     async function loadData() {
@@ -164,7 +165,30 @@ export default function LeadCapturePage() {
     setRegistrationLoading(true);
     setError(null);
 
-    const { error: fnError } = await supabase.functions.invoke('request-magic-link', {
+    const { data, error: rpcError } = await supabase.rpc('start_registration', {
+      p_email: form.email.trim(),
+      p_chapter_id: chapter.id,
+      p_sport_id: sport.id,
+      p_member_type: memberType ?? 'new',
+    });
+
+    if (rpcError) {
+      setError('Something went wrong starting your registration — please try again.');
+      setRegistrationLoading(false);
+      return;
+    }
+
+    const result = data as { status: string; cycle_id: string; member_type: string; access_token?: string } | null;
+    const accessToken = result?.access_token;
+
+    if (!accessToken) {
+      setError('Something went wrong starting your registration — please try again.');
+      setRegistrationLoading(false);
+      return;
+    }
+
+    // Fire-and-forget — emails the durable link; does not block navigation
+    supabase.functions.invoke('request-magic-link', {
       body: {
         email: form.email.trim(),
         chapter_id: chapter.id,
@@ -173,14 +197,7 @@ export default function LeadCapturePage() {
       },
     });
 
-    if (fnError) {
-      setError('Unable to send registration link. Please try again.');
-      setRegistrationLoading(false);
-      return;
-    }
-
-    setRegistrationSent(true);
-    setRegistrationLoading(false);
+    navigate(`/r/${accessToken}`, { state: { emailSent: true } });
   };
 
   const chapterName = chapter?.name ?? 'DBOA';
@@ -310,25 +327,19 @@ export default function LeadCapturePage() {
                 ))}
               </ol>
             ) : null}
-            {registrationSent ? (
-              <div className="mt-5 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-700">
-                Check your email at <strong>{form.email}</strong> — your registration link is on its way.
-              </div>
-            ) : (
-              <div className="mt-5">
-                <button
-                  type="button"
-                  onClick={handleStartRegistration}
-                  disabled={registrationLoading || !memberType}
-                  className={primaryBtn}
-                >
-                  {registrationLoading ? 'Sending link…' : 'Start my registration'}
-                </button>
-                {!memberType ? (
-                  <p className="mt-2 text-xs text-slate-400">Select your path above to continue.</p>
-                ) : null}
-              </div>
-            )}
+            <div className="mt-5">
+              <button
+                type="button"
+                onClick={handleStartRegistration}
+                disabled={registrationLoading || !memberType}
+                className={primaryBtn}
+              >
+                {registrationLoading ? 'Opening your checklist…' : 'Start my registration'}
+              </button>
+              {!memberType ? (
+                <p className="mt-2 text-xs text-slate-400">Select your path above to continue.</p>
+              ) : null}
+            </div>
           </Card>
         </>
       ) : (

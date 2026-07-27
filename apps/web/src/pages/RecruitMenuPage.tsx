@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Card } from '../components/ui';
 import { registerDomainEventHandler } from '../lib/domainEvents';
@@ -415,6 +415,8 @@ async function mergeAuthorityData(
 export default function RecruitMenuPage() {
   const { token } = useParams();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const emailSent = (location.state as { emailSent?: boolean } | null)?.emailSent === true;
   const [registration, setRegistration] = useState<RegistrationResponse | null>(null);
   const [chapterLogo, setChapterLogo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -751,6 +753,13 @@ export default function RecruitMenuPage() {
       {paymentSuccess ? (
         <div className="mt-4 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-700">
           Payment confirmed — your dues step has been marked complete.
+        </div>
+      ) : null}
+
+      {/* ── Email-sent banner (shown once on first navigation from intake) ── */}
+      {emailSent ? (
+        <div className="mt-4 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-700">
+          We also emailed your registration link — use it to come back anytime.
         </div>
       ) : null}
 
