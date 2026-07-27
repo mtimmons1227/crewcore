@@ -80,6 +80,17 @@ type RenderItem =
   | { kind: 'step'; step: RegistrationStep; idx: number }
   | { kind: 'milestone'; prevComplete: boolean };
 
+type StepSession = {
+  session_id: string;
+  title: string;
+  location: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  my_status: 'pending' | 'checked_in' | 'attended' | 'left_early';
+  check_in_at: string | null;
+  check_out_at: string | null;
+};
+
 // ── Description helpers ───────────────────────────────────────────────────────
 
 function getStepDescription(step: RegistrationStep): string | null {
@@ -365,6 +376,23 @@ function NodeCircle({ state, number }: { state: 'complete' | 'current' | 'locked
   );
 }
 
+// ── Session status pill ───────────────────────────────────────────────────────
+
+function SessionStatusPill({ status }: { status: string }) {
+  const cfg: Record<string, { label: string; cls: string }> = {
+    pending:    { label: 'Pending',    cls: 'bg-slate-100 text-slate-500' },
+    checked_in: { label: 'Checked in', cls: 'bg-blue-50 text-blue-700' },
+    attended:   { label: 'Attended',   cls: 'bg-emerald-50 text-emerald-700' },
+    left_early: { label: 'Left early', cls: 'bg-amber-50 text-amber-700' },
+  };
+  const { label, cls } = cfg[status] ?? { label: status, cls: 'bg-slate-100 text-slate-500' };
+  return (
+    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
 // ── Save-link modal ───────────────────────────────────────────────────────────
 
 function SaveLinkModal({ onClose }: { onClose: () => void }) {
@@ -536,7 +564,14 @@ export default function RecruitMenuPage() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [feesOpen, setFeesOpen] = useState(false);
   const [showModal, setShowModal] = useState(Boolean(locState?.justSubmitted));
+  const [expandedAttendance, setExpandedAttendance] = useState<Record<string, boolean>>({});
+  const [stepSessions, setStepSessions] = useState<Record<string, StepSession[]>>({});
+  const [stepSessionsLoading, setStepSessionsLoading] = useState<Record<string, boolean>>({});
   const paymentSuccess = searchParams.get('payment') === 'success';
+
+  useEffect(() => {
+    if (token) localStorage.setItem('refnet_official_token', token);
+  }, [token]);
 
   useEffect(() => {
     registerDomainEventHandler('dues.paid', () => {
@@ -598,6 +633,20 @@ export default function RecruitMenuPage() {
     const { steps } = await mergeAuthorityData(raw);
     setRegistration({ cycle: raw.cycle, steps });
     setBusyStep(null);
+  };
+
+  const toggleAttendanceSessions = async (stepId: string) => {
+    const opening = !expandedAttendance[stepId];
+    setExpandedAttendance((prev) => ({ ...prev, [stepId]: opening }));
+    if (opening && !stepSessions[stepId]) {
+      setStepSessionsLoading((prev) => ({ ...prev, [stepId]: true }));
+      const { data } = await (supabase as any).rpc('get_step_sessions', {
+        p_official_token: token,
+        p_workflow_step_id: stepId,
+      });
+      setStepSessions((prev) => ({ ...prev, [stepId]: (data as StepSession[]) ?? [] }));
+      setStepSessionsLoading((prev) => ({ ...prev, [stepId]: false }));
+    }
   };
 
   const handlePayDues = async (stepId: string) => {
@@ -1195,6 +1244,64 @@ export default function RecruitMenuPage() {
                   ) : null}
 
                   <div className="mt-2">{renderStepAction(step)}</div>
+
+                  {/* ── Attendance session list ── */}
+                  {step.step_type === 'attendance' ? (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={() => toggleAttendanceSessions(step.step_id)}
+                        className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                      >
+                        <span>{expandedAttendance[step.step_id] ? '▴' : '▾'}</span>
+                        <span>Sessions</span>
+                      </button>
+
+                      {expandedAttendance[step.step_id] ? (
+                        stepSessionsLoading[step.step_id] ? (
+                          <p className="mt-2 text-xs text-slate-400">Loading sessions…</p>
+                        ) : (
+                          <div className="mt-2 space-y-2">
+                            {step.config?.count_required ? (
+                              <p className="text-xs font-semibold text-slate-600">
+                                Attended{' '}
+                                {(stepSessions[step.step_id] ?? []).filter(
+                                  (s) => s.my_status === 'attended',
+                                ).length}{' '}
+                                of {step.config.count_required} required
+                              </p>
+                            ) : null}
+                            {(stepSessions[step.step_id] ?? []).length === 0 ? (
+                              <p className="text-xs text-slate-400">No sessions scheduled yet.</p>
+                            ) : (
+                              (stepSessions[step.step_id] ?? []).map((sess) => (
+                                <div
+                                  key={sess.session_id}
+                                  className="flex items-start justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5"
+                                >
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-semibold text-slate-900">
+                                      {sess.title}
+                                    </p>
+                                    <p className="mt-0.5 text-xs text-slate-500">
+                                      {new Date(sess.starts_at).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: 'numeric',
+                                        minute: '2-digit',
+                                      })}
+                                      {sess.location ? ` · ${sess.location}` : ''}
+                                    </p>
+                                  </div>
+                                  <SessionStatusPill status={sess.my_status} />
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             );

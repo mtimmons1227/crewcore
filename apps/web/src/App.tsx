@@ -4,6 +4,9 @@ import LeadCapturePage from './pages/LeadCapturePage';
 import CommandCenterPage from './pages/CommandCenterPage';
 import RecruitMenuPage from './pages/RecruitMenuPage';
 import BoardDashboardPage from './pages/BoardDashboardPage';
+import CheckInPage from './pages/CheckInPage';
+import KioskPage from './pages/KioskPage';
+import SessionAdminPage from './pages/SessionAdminPage';
 import { startDomainEventConsumer, stopDomainEventConsumer } from './lib/domainEvents';
 
 class ErrorBoundary extends React.Component<
@@ -44,11 +47,19 @@ function App() {
   const isCommandCenter = location.pathname === '/command';
   const isBoard = location.pathname === '/board';
   const isLeadCapture = location.pathname === '/';
+  const isFullBleed =
+    location.pathname.startsWith('/checkin/') ||
+    location.pathname.startsWith('/kiosk/') ||
+    location.pathname === '/sessions/admin';
 
-  const shellClass =
-    isCommandCenter || isBoard || isLeadCapture ? 'min-h-screen bg-slate-100' : 'page-shell';
-  const frameClass =
-    isCommandCenter || isBoard
+  const shellClass = isFullBleed
+    ? ''
+    : isCommandCenter || isBoard || isLeadCapture
+      ? 'min-h-screen bg-slate-100'
+      : 'page-shell';
+  const frameClass = isFullBleed
+    ? ''
+    : isCommandCenter || isBoard
       ? 'mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8'
       : isLeadCapture
         ? 'mx-auto w-full max-w-lg px-4 py-6 sm:px-6'
@@ -63,6 +74,9 @@ function App() {
             <Route path="/command" element={<CommandCenterPage />} />
             <Route path="/board" element={<BoardDashboardPage />} />
             <Route path="/r/:token" element={<RecruitMenuPage />} />
+            <Route path="/checkin/:sessionId" element={<CheckInPage />} />
+            <Route path="/kiosk/:sessionId" element={<KioskPage />} />
+            <Route path="/sessions/admin" element={<SessionAdminPage />} />
           </Routes>
         </div>
       </div>
