@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams, useLocation } from 'react-router-dom';
+import { useParams, useSearchParams, useLocation, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Card } from '../components/ui';
 import { registerDomainEventHandler } from '../lib/domainEvents';
@@ -1092,6 +1092,28 @@ export default function RecruitMenuPage() {
             <span className="text-xl font-bold text-slate-900">{progressPct}%</span>
           </div>
         </div>
+      </Card>
+
+      {/* ── Make the Call entry ── */}
+      <Card className="mt-4 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+              Chapter fit
+            </p>
+            <h3 className="mt-0.5 text-base font-semibold text-slate-900">Make the Call.</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Find your best-fit chapter based on where you live, work, and are available.
+            </p>
+          </div>
+          <span className="text-2xl" aria-hidden="true">📍</span>
+        </div>
+        <Link
+          to={`/r/${token}/make-the-call`}
+          className="mt-4 block rounded-2xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-slate-700"
+        >
+          Find my best-fit chapter
+        </Link>
       </Card>
 
       {/* ── 4. Vertical meter ── */}

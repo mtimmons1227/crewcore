@@ -7,6 +7,8 @@ import BoardDashboardPage from './pages/BoardDashboardPage';
 import CheckInPage from './pages/CheckInPage';
 import KioskPage from './pages/KioskPage';
 import SessionAdminPage from './pages/SessionAdminPage';
+import BoardVerifyPage from './pages/BoardVerifyPage';
+import MakeTheCallPage from './pages/MakeTheCallPage';
 import { startDomainEventConsumer, stopDomainEventConsumer } from './lib/domainEvents';
 
 class ErrorBoundary extends React.Component<
@@ -50,7 +52,9 @@ function App() {
   const isFullBleed =
     location.pathname.startsWith('/checkin/') ||
     location.pathname.startsWith('/kiosk/') ||
-    location.pathname === '/sessions/admin';
+    location.pathname === '/sessions/admin' ||
+    location.pathname === '/board/verify' ||
+    location.pathname.endsWith('/make-the-call');
 
   const shellClass = isFullBleed
     ? ''
@@ -73,7 +77,9 @@ function App() {
             <Route path="/" element={<LeadCapturePage />} />
             <Route path="/command" element={<CommandCenterPage />} />
             <Route path="/board" element={<BoardDashboardPage />} />
+            <Route path="/r/:token/make-the-call" element={<MakeTheCallPage />} />
             <Route path="/r/:token" element={<RecruitMenuPage />} />
+            <Route path="/board/verify" element={<BoardVerifyPage />} />
             <Route path="/checkin/:sessionId" element={<CheckInPage />} />
             <Route path="/kiosk/:sessionId" element={<KioskPage />} />
             <Route path="/sessions/admin" element={<SessionAdminPage />} />
