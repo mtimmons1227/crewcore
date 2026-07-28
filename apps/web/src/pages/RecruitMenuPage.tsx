@@ -568,6 +568,7 @@ export default function RecruitMenuPage() {
   const [expandedAttendance, setExpandedAttendance] = useState<Record<string, boolean>>({});
   const [stepSessions, setStepSessions] = useState<Record<string, StepSession[]>>({});
   const [stepSessionsLoading, setStepSessionsLoading] = useState<Record<string, boolean>>({});
+  const [demoLoading, setDemoLoading] = useState(false);
   const paymentSuccess = searchParams.get('payment') === 'success';
 
   useEffect(() => {
@@ -795,6 +796,21 @@ export default function RecruitMenuPage() {
   // Default true so existing sessions (pre-migration-025) aren't accidentally locked
   const placementConfirmed = cycle.placement_confirmed ?? true;
   const sortedSteps = steps.slice().sort((a, b) => a.sort_order - b.sort_order);
+
+  const hasUnfinishedStateSteps = sortedSteps.some(
+    (s) => s.authority === 'state' && s.status !== 'complete',
+  );
+
+  async function handleDemoThsboa() {
+    if (!token) return;
+    setDemoLoading(true);
+    try {
+      await (supabase as any).rpc('demo_load_thsboa', { p_token: token });
+      window.location.reload();
+    } catch {
+      setDemoLoading(false);
+    }
+  }
   const completedCount = sortedSteps.filter((s) => s.status === 'complete').length;
   const progressPct = sortedSteps.length > 0 ? Math.round((completedCount / sortedSteps.length) * 100) : 0;
   const isStalled = sortedSteps.some(
@@ -935,6 +951,23 @@ export default function RecruitMenuPage() {
         <span aria-hidden="true">🔖</span>
         This page is your saved progress — bookmark it, or use the link we emailed you to get back here.
       </p>
+
+      {/* ── Demo mode banner ── */}
+      {hasUnfinishedStateSteps ? (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-800">
+            <span className="font-semibold">Demo mode:</span> Simulate THSBOA state steps (registration, background check, state test) completing.
+          </p>
+          <button
+            type="button"
+            onClick={handleDemoThsboa}
+            disabled={demoLoading}
+            className="shrink-0 rounded-xl bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+          >
+            {demoLoading ? 'Loading…' : 'Load state steps'}
+          </button>
+        </div>
+      ) : null}
 
       {/* ── 2. Fees strip (compact, collapsible) ── */}
       {feeRows.length > 0 ? (
