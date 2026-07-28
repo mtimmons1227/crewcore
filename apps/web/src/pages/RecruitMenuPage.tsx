@@ -807,7 +807,9 @@ export default function RecruitMenuPage() {
       ? "Welcome back — let's get you renewed for the season."
       : cycle.member_type === 'transfer'
         ? 'Welcome to DBOA.'
-        : 'Your path to officiating';
+        : cycle.person.full_name
+          ? `${cycle.person.full_name.split(' ')[0]}'s path to officiating`
+          : 'Your path to officiating';
   const pathSub =
     cycle.member_type === 'transfer'
       ? "We've recognized what you already hold — here's what's left to join us locally."
@@ -907,11 +909,6 @@ export default function RecruitMenuPage() {
             <div className="mt-1 text-sm text-slate-400">
               {fullChapterName} · {cycle.season} season
             </div>
-            {cycle.person.full_name ? (
-              <div className="mt-1 text-xs text-slate-500">
-                Prepared for {cycle.person.full_name}
-              </div>
-            ) : null}
           </div>
         </div>
       </header>
