@@ -313,137 +313,44 @@ function Shell({ groupLabel, children }: { groupLabel: string; children: React.R
   );
 }
 
-type DirectoryViewProps = {
-  directory: ChapterDir[];
-  directoryLoading: boolean;
-  shareConsent: boolean;
-  onConsentToggle: () => void;
-  referralResults: Record<string, { ok: boolean; reason?: string }>;
-  referralBusy: Record<string, boolean>;
-  onRefer: (chapterId: string) => void;
-};
-
-// Hoisted directory view — was inside MakeTheCallPage causing focus-drop remounts.
+// Plain chapter list — name + website link + "Integrated with CrewCore" tag. No referral/consent.
 function DirectoryView({
   directory,
   directoryLoading,
-  shareConsent,
-  onConsentToggle,
-  referralResults,
-  referralBusy,
-  onRefer,
-}: DirectoryViewProps) {
+}: {
+  directory: ChapterDir[];
+  directoryLoading: boolean;
+}) {
+  if (directoryLoading) {
+    return <p className="py-4 text-center text-sm text-slate-400">Loading directory…</p>;
+  }
+  if (directory.length === 0) {
+    return <p className="text-sm text-slate-400">No chapters in the directory yet.</p>;
+  }
   return (
     <div className="space-y-3">
-      <button
-        type="button"
-        onClick={onConsentToggle}
-        className="flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition"
-        style={{
-          borderColor: shareConsent ? '#0f172a' : '#e2e8f0',
-          backgroundColor: shareConsent ? '#f8fafc' : 'white',
-        }}
-      >
-        <span
-          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition"
-          style={{
-            borderColor: shareConsent ? '#0f172a' : '#cbd5e1',
-            backgroundColor: shareConsent ? '#0f172a' : 'white',
-          }}
-        >
-          {shareConsent ? (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path
-                d="M2 5l2.5 2.5L8 3"
-                stroke="white"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+      {directory.map((ch) => (
+        <div key={ch.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-semibold text-slate-900">{ch.name}</p>
+            {ch.is_integrated ? (
+              <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                Integrated with CrewCore
+              </span>
+            ) : null}
+          </div>
+          {ch.recruitment_url ? (
+            <a
+              href={ch.recruitment_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-block text-xs font-semibold text-slate-600 underline-offset-2 hover:underline"
+            >
+              Visit website →
+            </a>
           ) : null}
-        </span>
-        <p className="text-xs leading-relaxed text-slate-600">
-          I authorize CrewCore to share my contact information with the chapter I select or approve
-          for referral.{' '}
-          <span className="text-slate-400">(Required to use "Refer me.")</span>
-        </p>
-      </button>
-
-      {directoryLoading ? (
-        <p className="py-4 text-center text-sm text-slate-400">Loading directory…</p>
-      ) : (
-        directory.map((ch) => {
-          const ref = referralResults[ch.id];
-          return (
-            <div key={ch.id} className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">{ch.name}</p>
-                  <p className="text-xs text-slate-500">{ch.region}</p>
-                  {ch.coverage_note ? (
-                    <p className="mt-1 text-xs text-slate-400">{ch.coverage_note}</p>
-                  ) : null}
-                </div>
-                {ch.is_integrated ? (
-                  <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                    Integrated
-                  </span>
-                ) : null}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {ch.recruitment_url ? (
-                  <a
-                    href={ch.recruitment_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                  >
-                    Visit website
-                  </a>
-                ) : null}
-                {ch.contact_email ? (
-                  <a
-                    href={`mailto:${ch.contact_email}`}
-                    className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                  >
-                    Email chapter
-                  </a>
-                ) : null}
-                {!ch.is_integrated ? (
-                  ref ? (
-                    ref.ok ? (
-                      <span className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                        Referral sent ✓
-                      </span>
-                    ) : ref.reason === 'consent_required' ? (
-                      <span className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
-                        Enable consent above first
-                      </span>
-                    ) : (
-                      <span className="rounded-xl bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
-                        {ref.reason ?? 'Error'}
-                      </span>
-                    )
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={referralBusy[ch.id]}
-                      onClick={() => onRefer(ch.id)}
-                      className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:opacity-50"
-                    >
-                      {referralBusy[ch.id] ? 'Sending…' : 'Refer me'}
-                    </button>
-                  )
-                ) : null}
-              </div>
-            </div>
-          );
-        })
-      )}
-      {!directoryLoading && directory.length === 0 ? (
-        <p className="text-sm text-slate-400">No chapters in the directory yet.</p>
-      ) : null}
+        </div>
+      ))}
     </div>
   );
 }
@@ -467,10 +374,6 @@ export default function MakeTheCallPage() {
   const [reviewReason, setReviewReason] = useState('');
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewDone, setReviewDone] = useState(false);
-  const [referralBusy, setReferralBusy] = useState<Record<string, boolean>>({});
-  const [referralResults, setReferralResults] = useState<
-    Record<string, { ok: boolean; reason?: string }>
-  >({});
 
   const setAnswer = <K extends keyof Answers>(key: K, value: Answers[K]) =>
     setAnswers((prev) => ({ ...prev, [key]: value }));
@@ -551,22 +454,6 @@ export default function MakeTheCallPage() {
       p_chapter_id: result.primary.chapter_id,
     });
     navigate(`/r/${token}`);
-  };
-
-  const handleRefer = async (chapterId: string) => {
-    setReferralBusy((prev) => ({ ...prev, [chapterId]: true }));
-    const { data, error } = await (supabase as any).rpc('create_referral', {
-      p_token: token,
-      p_chapter_id: chapterId,
-      p_share_consent: answers.share_consent,
-    });
-    setReferralBusy((prev) => ({ ...prev, [chapterId]: false }));
-    setReferralResults((prev) => ({
-      ...prev,
-      [chapterId]: error
-        ? { ok: false, reason: error.message }
-        : (data as { ok: boolean; reason?: string }),
-    }));
   };
 
   const handleRequestReview = async () => {
@@ -852,15 +739,7 @@ export default function MakeTheCallPage() {
           </button>
         </div>
 
-        <DirectoryView
-          directory={directory}
-          directoryLoading={directoryLoading}
-          shareConsent={answers.share_consent}
-          onConsentToggle={() => setAnswer('share_consent', !answers.share_consent)}
-          referralResults={referralResults}
-          referralBusy={referralBusy}
-          onRefer={handleRefer}
-        />
+        <DirectoryView directory={directory} directoryLoading={directoryLoading} />
 
         <div className="mt-6 rounded-2xl border border-slate-100 bg-slate-50 p-4">
           <p className="text-sm font-semibold text-slate-700">Want a recommendation instead?</p>
@@ -1113,15 +992,7 @@ export default function MakeTheCallPage() {
             DBOA is the only chapter currently integrated with CrewCore. More Metroplex chapters are
             being added.
           </p>
-          <DirectoryView
-            directory={directory}
-            directoryLoading={directoryLoading}
-            shareConsent={answers.share_consent}
-            onConsentToggle={() => setAnswer('share_consent', !answers.share_consent)}
-            referralResults={referralResults}
-            referralBusy={referralBusy}
-            onRefer={handleRefer}
-          />
+          <DirectoryView directory={directory} directoryLoading={directoryLoading} />
         </div>
       ) : null}
     </Shell>
