@@ -1251,7 +1251,7 @@ export default function RecruitMenuPage() {
                       <button
                         type="button"
                         onClick={() => toggleAttendanceSessions(step.step_id)}
-                        className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800 transition hover:bg-blue-100"
                       >
                         <span>{expandedAttendance[step.step_id] ? '▴' : '▾'}</span>
                         <span>Sessions</span>
