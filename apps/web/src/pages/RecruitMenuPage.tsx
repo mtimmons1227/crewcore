@@ -907,6 +907,11 @@ export default function RecruitMenuPage() {
             <div className="mt-1 text-sm text-slate-400">
               {fullChapterName} · {cycle.season} season
             </div>
+            {cycle.person.full_name ? (
+              <div className="mt-1 text-xs text-slate-500">
+                Prepared for {cycle.person.full_name}
+              </div>
+            ) : null}
           </div>
         </div>
       </header>
