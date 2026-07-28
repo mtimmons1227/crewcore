@@ -61,18 +61,22 @@ type QuestionDef = {
   group: 0 | 1;
   sublabel: string;
   label: string;
+  helper?: string;
+  placeholder?: string;
   type: QType;
   required: boolean;
   locationNote?: boolean;
   whyWeAsk: string;
 };
 
-const QUESTIONS: QuestionDef[] = [
+const ALL_QUESTIONS: QuestionDef[] = [
   {
     id: 'afternoon_location_type',
     group: 0,
     sublabel: 'Early-game location',
-    label: 'Where are you normally located between 4:00 and 4:30 p.m. on weekdays?',
+    label: 'Where are you usually at 4:00–4:30 p.m. on weekdays?',
+    helper:
+      'Early games tip off before most people can get home from work — this helps us find games you can actually reach.',
     type: 'afternoon-type',
     required: true,
     whyWeAsk:
@@ -81,19 +85,21 @@ const QUESTIONS: QuestionDef[] = [
   {
     id: 'weekday_afternoon_location',
     group: 0,
-    sublabel: 'ZIP for that location',
-    label: 'ZIP code or nearest intersection for that location.',
+    sublabel: 'Around 4:00–4:30 p.m.',
+    label: 'Around 4:00–4:30 p.m., what area are you usually in?',
+    placeholder: 'ZIP or nearest cross streets',
     type: 'zip',
     required: true,
     locationNote: true,
     whyWeAsk:
-      'Helps us estimate which gyms and chapters cover the area where you naturally end your day.',
+      'Helps us estimate which gyms and chapters cover the area where you naturally are during early-game hours.',
   },
   {
     id: 'work_zip',
     group: 0,
     sublabel: 'Work or school',
-    label: 'Work or school ZIP code.',
+    label: 'What ZIP is your work or school in?',
+    placeholder: 'ZIP or nearest intersection',
     type: 'zip',
     required: true,
     locationNote: true,
@@ -103,7 +109,8 @@ const QUESTIONS: QuestionDef[] = [
     id: 'home_zip',
     group: 0,
     sublabel: 'Home base',
-    label: 'Home ZIP code.',
+    label: 'What ZIP do you live in?',
+    placeholder: 'ZIP or nearest intersection',
     type: 'zip',
     required: true,
     locationNote: true,
@@ -177,8 +184,7 @@ const QUESTIONS: QuestionDef[] = [
     label: 'Do you currently hold or have you previously held chapter membership?',
     type: 'membership',
     required: false,
-    whyWeAsk:
-      "Tells us if you're transitioning from another chapter or starting fresh.",
+    whyWeAsk: "Tells us if you're transitioning from another chapter or starting fresh.",
   },
   {
     id: 'transport_availability',
@@ -191,6 +197,18 @@ const QUESTIONS: QuestionDef[] = [
       'Many gym sites are in suburban areas — helps us flag assignments that may be hard to reach.',
   },
 ];
+
+// Only include the dedicated afternoon-ZIP screen for Varies/Other;
+// for Work/School/Home, that ZIP is captured by the matching screen.
+function computeVisibleQuestions(answers: Answers): QuestionDef[] {
+  const type = answers.afternoon_location_type;
+  return ALL_QUESTIONS.filter((q) => {
+    if (q.id === 'weekday_afternoon_location') {
+      return type === 'varies' || type === 'other';
+    }
+    return true;
+  });
+}
 
 const INITIAL: Answers = {
   want_recommendation: null,
@@ -252,26 +270,180 @@ function choiceBtnCls(selected: boolean) {
 const LOCATION_NOTE =
   'We use this location only to estimate which chapter and early-game areas may be practical for you. You may enter a nearby intersection or ZIP code instead of an exact address.';
 
-// ── Illustration (desktop sidebar) ─────────────────────────────────────────────
+// ── Module-scope components (hoisted to avoid re-mount on state change) ─────────
+
 function RouteMap() {
   return (
     <div className="mt-4 hidden flex-col items-center rounded-2xl border border-slate-100 bg-slate-50 p-5 text-center lg:flex">
       <div className="flex items-center gap-2 text-2xl">
         <span title="Home">🏠</span>
-        <span className="text-slate-300 text-sm">—</span>
+        <span className="text-sm text-slate-300">—</span>
         <span
           className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-lg"
           title="Chapter"
         >
           🏀
         </span>
-        <span className="text-slate-300 text-sm">—</span>
+        <span className="text-sm text-slate-300">—</span>
         <span title="Work">💼</span>
       </div>
       <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
-        Chapter fit is about matching you to gyms that fall naturally between your daily
-        locations.
+        Chapter fit is about matching you to gyms that fall naturally between your daily locations.
       </p>
+    </div>
+  );
+}
+
+// Hoisted shell — was inside MakeTheCallPage causing focus-drop remounts.
+function Shell({ groupLabel, children }: { groupLabel: string; children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-screen flex-col bg-white">
+      <header className="bg-slate-900 px-5 py-4">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+          CrewCore
+        </p>
+        <p className="mt-0.5 text-lg font-bold text-white">
+          Make the Call{groupLabel ? ` · ${groupLabel}` : '.'}
+        </p>
+      </header>
+      <div className="flex flex-1 flex-col px-5 py-6 sm:mx-auto sm:w-full sm:max-w-2xl">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+type DirectoryViewProps = {
+  directory: ChapterDir[];
+  directoryLoading: boolean;
+  shareConsent: boolean;
+  onConsentToggle: () => void;
+  referralResults: Record<string, { ok: boolean; reason?: string }>;
+  referralBusy: Record<string, boolean>;
+  onRefer: (chapterId: string) => void;
+};
+
+// Hoisted directory view — was inside MakeTheCallPage causing focus-drop remounts.
+function DirectoryView({
+  directory,
+  directoryLoading,
+  shareConsent,
+  onConsentToggle,
+  referralResults,
+  referralBusy,
+  onRefer,
+}: DirectoryViewProps) {
+  return (
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={onConsentToggle}
+        className="flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition"
+        style={{
+          borderColor: shareConsent ? '#0f172a' : '#e2e8f0',
+          backgroundColor: shareConsent ? '#f8fafc' : 'white',
+        }}
+      >
+        <span
+          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition"
+          style={{
+            borderColor: shareConsent ? '#0f172a' : '#cbd5e1',
+            backgroundColor: shareConsent ? '#0f172a' : 'white',
+          }}
+        >
+          {shareConsent ? (
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path
+                d="M2 5l2.5 2.5L8 3"
+                stroke="white"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : null}
+        </span>
+        <p className="text-xs leading-relaxed text-slate-600">
+          I authorize CrewCore to share my contact information with the chapter I select or approve
+          for referral.{' '}
+          <span className="text-slate-400">(Required to use "Refer me.")</span>
+        </p>
+      </button>
+
+      {directoryLoading ? (
+        <p className="py-4 text-center text-sm text-slate-400">Loading directory…</p>
+      ) : (
+        directory.map((ch) => {
+          const ref = referralResults[ch.id];
+          return (
+            <div key={ch.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">{ch.name}</p>
+                  <p className="text-xs text-slate-500">{ch.region}</p>
+                  {ch.coverage_note ? (
+                    <p className="mt-1 text-xs text-slate-400">{ch.coverage_note}</p>
+                  ) : null}
+                </div>
+                {ch.is_integrated ? (
+                  <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                    Integrated
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {ch.recruitment_url ? (
+                  <a
+                    href={ch.recruitment_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Visit website
+                  </a>
+                ) : null}
+                {ch.contact_email ? (
+                  <a
+                    href={`mailto:${ch.contact_email}`}
+                    className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Email chapter
+                  </a>
+                ) : null}
+                {!ch.is_integrated ? (
+                  ref ? (
+                    ref.ok ? (
+                      <span className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                        Referral sent ✓
+                      </span>
+                    ) : ref.reason === 'consent_required' ? (
+                      <span className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                        Enable consent above first
+                      </span>
+                    ) : (
+                      <span className="rounded-xl bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
+                        {ref.reason ?? 'Error'}
+                      </span>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={referralBusy[ch.id]}
+                      onClick={() => onRefer(ch.id)}
+                      className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:opacity-50"
+                    >
+                      {referralBusy[ch.id] ? 'Sending…' : 'Refer me'}
+                    </button>
+                  )
+                ) : null}
+              </div>
+            </div>
+          );
+        })
+      )}
+      {!directoryLoading && directory.length === 0 ? (
+        <p className="text-sm text-slate-400">No chapters in the directory yet.</p>
+      ) : null}
     </div>
   );
 }
@@ -308,10 +480,19 @@ export default function MakeTheCallPage() {
     setSaving(true);
     setSaveError(null);
 
+    // Resolve afternoon location from work/home ZIP when type isn't varies/other
+    const type = finalAnswers.afternoon_location_type;
+    const resolvedWeekdayLocation =
+      type === 'work' || type === 'school'
+        ? finalAnswers.work_zip
+        : type === 'home'
+          ? finalAnswers.home_zip
+          : finalAnswers.weekday_afternoon_location;
+
     const profile = {
       want_recommendation: finalAnswers.want_recommendation,
       afternoon_location_type: finalAnswers.afternoon_location_type || null,
-      weekday_afternoon_location: finalAnswers.weekday_afternoon_location || null,
+      weekday_afternoon_location: resolvedWeekdayLocation || null,
       work_zip: finalAnswers.work_zip || null,
       home_zip: finalAnswers.home_zip || null,
       travel_minutes: finalAnswers.travel_minutes || null,
@@ -399,22 +580,22 @@ export default function MakeTheCallPage() {
   };
 
   // ── Entry path handlers ────────────────────────────────────────────────────
-  const handleGuided = async () => {
-    const updated = { ...answers, want_recommendation: 'recommend' as const };
-    setAnswers(updated);
+  const handleGuided = () => {
+    setAnswers((prev) => ({ ...prev, want_recommendation: 'recommend' }));
     setPhase('questions');
     setQuestionIdx(0);
   };
 
-  const handleCompareEntry = async () => {
-    const updated = { ...answers, want_recommendation: 'compare' as const };
-    setAnswers(updated);
+  const handleCompareEntry = () => {
+    setAnswers((prev) => ({ ...prev, want_recommendation: 'compare' }));
     setPhase('compare');
     loadDirectory();
   };
 
   // ── Question navigation ────────────────────────────────────────────────────
-  const q = QUESTIONS[questionIdx];
+  const visibleQuestions = computeVisibleQuestions(answers);
+  const q = visibleQuestions[questionIdx];
+  const isLast = questionIdx === visibleQuestions.length - 1;
 
   const canProceed = (): boolean => {
     if (!q || !q.required) return true;
@@ -424,7 +605,6 @@ export default function MakeTheCallPage() {
   };
 
   const advanceQuestion = async (skipCurrent = false) => {
-    const isLast = questionIdx === QUESTIONS.length - 1;
     if (isLast) {
       await saveAndRecommend(answers);
     } else {
@@ -440,25 +620,6 @@ export default function MakeTheCallPage() {
       setQuestionIdx((i) => i - 1);
     }
   };
-
-  // ── Shell wrapper ──────────────────────────────────────────────────────────
-  const groupLabel = phase === 'questions' && q ? GROUP_LABELS[q.group] : '';
-
-  const Shell = ({ children }: { children: React.ReactNode }) => (
-    <div className="flex min-h-screen flex-col bg-white">
-      <header className="bg-slate-900 px-5 py-4">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-          CrewCore
-        </p>
-        <p className="mt-0.5 text-lg font-bold text-white">
-          Make the Call{groupLabel ? ` · ${groupLabel}` : '.'}
-        </p>
-      </header>
-      <div className="flex flex-1 flex-col px-5 py-6 sm:mx-auto sm:w-full sm:max-w-2xl">
-        {children}
-      </div>
-    </div>
-  );
 
   // ── Render question input ──────────────────────────────────────────────────
   const renderInput = () => {
@@ -492,7 +653,7 @@ export default function MakeTheCallPage() {
           inputMode="numeric"
           value={answers[field]}
           onChange={(e) => setAnswer(field, e.target.value)}
-          placeholder="ZIP code or nearest intersection"
+          placeholder={q.placeholder ?? 'ZIP or nearest intersection'}
           className={inputCls}
           autoComplete="postal-code"
         />
@@ -573,7 +734,7 @@ export default function MakeTheCallPage() {
               inputMode="numeric"
               value={answers.evening_location}
               onChange={(e) => setAnswer('evening_location', e.target.value)}
-              placeholder="ZIP code or nearest intersection"
+              placeholder="ZIP or nearest intersection"
               className={inputCls}
               autoComplete="postal-code"
             />
@@ -627,126 +788,13 @@ export default function MakeTheCallPage() {
     return null;
   };
 
-  // ── Chapter directory view (shared between compare + result sub-view) ───────
-  const DirectoryView = () => (
-    <div className="space-y-3">
-      {/* Consent for referrals */}
-      <button
-        type="button"
-        onClick={() => setAnswer('share_consent', !answers.share_consent)}
-        className="flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition"
-        style={{
-          borderColor: answers.share_consent ? '#0f172a' : '#e2e8f0',
-          backgroundColor: answers.share_consent ? '#f8fafc' : 'white',
-        }}
-      >
-        <span
-          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition"
-          style={{
-            borderColor: answers.share_consent ? '#0f172a' : '#cbd5e1',
-            backgroundColor: answers.share_consent ? '#0f172a' : 'white',
-          }}
-        >
-          {answers.share_consent ? (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path
-                d="M2 5l2.5 2.5L8 3"
-                stroke="white"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          ) : null}
-        </span>
-        <p className="text-xs leading-relaxed text-slate-600">
-          I authorize CrewCore to share my contact information with the chapter I select or approve
-          for referral.{' '}
-          <span className="text-slate-400">(Required to use "Refer me.")</span>
-        </p>
-      </button>
-
-      {directoryLoading ? (
-        <p className="py-4 text-center text-sm text-slate-400">Loading directory…</p>
-      ) : (
-        directory.map((ch) => {
-          const ref = referralResults[ch.id];
-          return (
-            <div key={ch.id} className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">{ch.name}</p>
-                  <p className="text-xs text-slate-500">{ch.region}</p>
-                  {ch.coverage_note ? (
-                    <p className="mt-1 text-xs text-slate-400">{ch.coverage_note}</p>
-                  ) : null}
-                </div>
-                {ch.is_integrated ? (
-                  <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                    Integrated
-                  </span>
-                ) : null}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {ch.recruitment_url ? (
-                  <a
-                    href={ch.recruitment_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                  >
-                    Visit website
-                  </a>
-                ) : null}
-                {ch.contact_email ? (
-                  <a
-                    href={`mailto:${ch.contact_email}`}
-                    className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                  >
-                    Email chapter
-                  </a>
-                ) : null}
-                {!ch.is_integrated ? (
-                  ref ? (
-                    ref.ok ? (
-                      <span className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                        Referral sent ✓
-                      </span>
-                    ) : ref.reason === 'consent_required' ? (
-                      <span className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
-                        Enable consent above first
-                      </span>
-                    ) : (
-                      <span className="rounded-xl bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
-                        {ref.reason ?? 'Error'}
-                      </span>
-                    )
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={referralBusy[ch.id]}
-                      onClick={() => handleRefer(ch.id)}
-                      className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:opacity-50"
-                    >
-                      {referralBusy[ch.id] ? 'Sending…' : 'Refer me'}
-                    </button>
-                  )
-                ) : null}
-              </div>
-            </div>
-          );
-        })
-      )}
-      {!directoryLoading && directory.length === 0 ? (
-        <p className="text-sm text-slate-400">No chapters in the directory yet.</p>
-      ) : null}
-    </div>
-  );
+  // ── Shell group label ──────────────────────────────────────────────────────
+  const groupLabel = phase === 'questions' && q ? GROUP_LABELS[q.group] : '';
 
   // ── ENTRY SCREEN ───────────────────────────────────────────────────────────
   if (phase === 'entry') {
     return (
-      <Shell>
+      <Shell groupLabel="">
         <div className="flex flex-1 flex-col justify-center">
           <h1 className="text-3xl font-bold text-slate-900">Make the Call.</h1>
           <p className="mt-3 text-base leading-relaxed text-slate-600">
@@ -787,7 +835,7 @@ export default function MakeTheCallPage() {
   // ── COMPARE SCREEN (entry-path) ────────────────────────────────────────────
   if (phase === 'compare') {
     return (
-      <Shell>
+      <Shell groupLabel="">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Browse chapters</h2>
@@ -804,20 +852,25 @@ export default function MakeTheCallPage() {
           </button>
         </div>
 
-        <DirectoryView />
+        <DirectoryView
+          directory={directory}
+          directoryLoading={directoryLoading}
+          shareConsent={answers.share_consent}
+          onConsentToggle={() => setAnswer('share_consent', !answers.share_consent)}
+          referralResults={referralResults}
+          referralBusy={referralBusy}
+          onRefer={handleRefer}
+        />
 
         <div className="mt-6 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-          <p className="text-sm font-semibold text-slate-700">
-            Want a recommendation instead?
-          </p>
+          <p className="text-sm font-semibold text-slate-700">Want a recommendation instead?</p>
           <p className="mt-0.5 text-xs text-slate-500">
             Answer a few questions and we&apos;ll tell you which chapter fits best.
           </p>
           <button
             type="button"
             onClick={() => {
-              const updated = { ...answers, want_recommendation: 'recommend' as const };
-              setAnswers(updated);
+              setAnswers((prev) => ({ ...prev, want_recommendation: 'recommend' }));
               setPhase('questions');
               setQuestionIdx(0);
             }}
@@ -833,21 +886,16 @@ export default function MakeTheCallPage() {
   // ── QUESTION SCREEN ────────────────────────────────────────────────────────
   if (phase === 'questions') {
     const currentGroup = q?.group ?? 0;
-    const isLast = questionIdx === QUESTIONS.length - 1;
-
-    // 3-step progress: group 0 = step 0, group 1 = step 1, result = step 2
     const currentStep = currentGroup;
 
     return (
-      <Shell>
+      <Shell groupLabel={groupLabel}>
         {/* Progress indicator */}
         <div className="mb-5">
           <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
             <span>
               Step {currentStep + 1} of 3 ·{' '}
-              <span className="font-semibold text-slate-600">
-                {GROUP_LABELS[currentGroup]}
-              </span>
+              <span className="font-semibold text-slate-600">{GROUP_LABELS[currentGroup]}</span>
             </span>
             <span>{q?.sublabel}</span>
           </div>
@@ -872,6 +920,9 @@ export default function MakeTheCallPage() {
           {/* Left: question + answer */}
           <div className="flex flex-1 flex-col">
             <h2 className="text-lg font-semibold leading-snug text-slate-900">{q?.label}</h2>
+            {q?.helper ? (
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-500">{q.helper}</p>
+            ) : null}
             {!q?.required ? (
               <p className="mt-0.5 text-xs text-slate-400">Optional — you can skip this.</p>
             ) : null}
@@ -949,7 +1000,7 @@ export default function MakeTheCallPage() {
   // ── RESULT SCREEN ──────────────────────────────────────────────────────────
   if (!result) {
     return (
-      <Shell>
+      <Shell groupLabel="">
         <p className="text-sm text-slate-400">Loading your recommendation…</p>
       </Shell>
     );
@@ -957,7 +1008,7 @@ export default function MakeTheCallPage() {
 
   if (resultView === 'review') {
     return (
-      <Shell>
+      <Shell groupLabel="">
         <button
           type="button"
           onClick={() => setResultView('main')}
@@ -972,9 +1023,7 @@ export default function MakeTheCallPage() {
         {reviewDone ? (
           <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-5">
             <p className="text-sm font-semibold text-emerald-800">Request submitted.</p>
-            <p className="mt-1 text-xs text-emerald-700">
-              A coordinator will reach out soon.
-            </p>
+            <p className="mt-1 text-xs text-emerald-700">A coordinator will reach out soon.</p>
           </div>
         ) : (
           <>
@@ -1001,13 +1050,12 @@ export default function MakeTheCallPage() {
 
   // Main result view
   return (
-    <Shell>
+    <Shell groupLabel="">
       {/* Step 3 of 3 indicator */}
       <div className="mb-5">
         <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
           <span>
-            Step 3 of 3 ·{' '}
-            <span className="font-semibold text-slate-600">The Call</span>
+            Step 3 of 3 · <span className="font-semibold text-slate-600">The Call</span>
           </span>
         </div>
         <div className="flex gap-1">
@@ -1062,10 +1110,18 @@ export default function MakeTheCallPage() {
         <div className="mt-6">
           <p className="mb-3 text-sm font-semibold text-slate-700">Other chapters</p>
           <p className="mb-3 text-xs text-slate-500">
-            DBOA is the only chapter currently integrated with CrewCore. More Metroplex chapters
-            are being added.
+            DBOA is the only chapter currently integrated with CrewCore. More Metroplex chapters are
+            being added.
           </p>
-          <DirectoryView />
+          <DirectoryView
+            directory={directory}
+            directoryLoading={directoryLoading}
+            shareConsent={answers.share_consent}
+            onConsentToggle={() => setAnswer('share_consent', !answers.share_consent)}
+            referralResults={referralResults}
+            referralBusy={referralBusy}
+            onRefer={handleRefer}
+          />
         </div>
       ) : null}
     </Shell>
