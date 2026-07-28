@@ -2,17 +2,26 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
+// ── Types ───────────────────────────────────────────────────────────────────────
+
+type Phase = 'entry' | 'questions' | 'compare' | 'result';
+type ResultView = 'main' | 'review';
+
 type Answers = {
+  want_recommendation: 'recommend' | 'compare' | null;
+  afternoon_location_type: string;
   weekday_afternoon_location: string;
-  home_zip: string;
   work_zip: string;
-  evening_location: string;
+  home_zip: string;
   travel_minutes: string;
   weekdays: string[];
-  saturdays: boolean | null;
+  willing_low_level: string;
+  evening_location_type: string;
+  evening_location: string;
+  saturday_availability: string;
   experience: string;
-  reliable_transport: boolean | null;
-  chapter_preference: string;
+  current_membership: string;
+  transport_availability: string;
   share_consent: boolean;
 };
 
@@ -33,154 +42,297 @@ type ChapterDir = {
   coverage_note: string | null;
 };
 
-type Question = {
+// ── Question definitions ────────────────────────────────────────────────────────
+
+type QType =
+  | 'afternoon-type'
+  | 'zip'
+  | 'travel'
+  | 'weekdays'
+  | 'willing'
+  | 'evening'
+  | 'saturday'
+  | 'experience'
+  | 'membership'
+  | 'transport';
+
+type QuestionDef = {
   id: keyof Answers;
-  category?: string;
+  group: 0 | 1;
+  sublabel: string;
   label: string;
-  type: 'text' | 'number' | 'multiselect' | 'boolean' | 'select' | 'consent';
-  optional?: boolean;
-  options?: { value: string; label: string }[];
+  type: QType;
+  required: boolean;
+  locationNote?: boolean;
+  whyWeAsk: string;
 };
 
-const WEEKDAY_OPTIONS = [
-  { value: 'mon', label: 'Mon' },
-  { value: 'tue', label: 'Tue' },
-  { value: 'wed', label: 'Wed' },
-  { value: 'thu', label: 'Thu' },
-  { value: 'fri', label: 'Fri' },
-];
-
-const QUESTIONS: Question[] = [
+const QUESTIONS: QuestionDef[] = [
+  {
+    id: 'afternoon_location_type',
+    group: 0,
+    sublabel: 'Early-game location',
+    label: 'Where are you normally located between 4:00 and 4:30 p.m. on weekdays?',
+    type: 'afternoon-type',
+    required: true,
+    whyWeAsk:
+      'Your 4–4:30 p.m. location tells us which areas are practical for early weeknight games.',
+  },
   {
     id: 'weekday_afternoon_location',
-    category: 'The Situation',
-    label: 'Where are you normally located between 4:00 and 4:30 p.m. on weekdays?',
-    type: 'text',
+    group: 0,
+    sublabel: 'ZIP for that location',
+    label: 'ZIP code or nearest intersection for that location.',
+    type: 'zip',
+    required: true,
+    locationNote: true,
+    whyWeAsk:
+      'Helps us estimate which gyms and chapters cover the area where you naturally end your day.',
   },
-  { id: 'home_zip', label: 'What is your home ZIP code?', type: 'text' },
-  { id: 'work_zip', label: 'What is your work or school ZIP code?', type: 'text' },
   {
-    id: 'evening_location',
-    label: 'Where are you typically located around 6:00–6:30 p.m.?',
-    type: 'text',
+    id: 'work_zip',
+    group: 0,
+    sublabel: 'Work or school',
+    label: 'Work or school ZIP code.',
+    type: 'zip',
+    required: true,
+    locationNote: true,
+    whyWeAsk: 'Your commute path can reveal chapter areas you pass through daily.',
+  },
+  {
+    id: 'home_zip',
+    group: 0,
+    sublabel: 'Home base',
+    label: 'Home ZIP code.',
+    type: 'zip',
+    required: true,
+    locationNote: true,
+    whyWeAsk: 'Tells us which chapters cover your home neighborhood.',
   },
   {
     id: 'travel_minutes',
-    label: 'How many minutes are you willing to travel to a game (maximum)?',
-    type: 'number',
+    group: 1,
+    sublabel: 'Travel range',
+    label: 'How far are you willing to travel to a game?',
+    type: 'travel',
+    required: true,
+    whyWeAsk:
+      'Game sites vary in distance — this sets the outer limit for what we match you with.',
   },
   {
     id: 'weekdays',
+    group: 1,
+    sublabel: 'Weekday availability',
     label: 'Which weekdays are you generally available?',
-    type: 'multiselect',
-    options: WEEKDAY_OPTIONS,
+    type: 'weekdays',
+    required: true,
+    whyWeAsk:
+      'Chapter meetings and most early games are weeknight evenings — this filters by when you can actually go.',
   },
-  { id: 'saturdays', label: 'Are Saturdays available for you?', type: 'boolean' },
+  {
+    id: 'willing_low_level',
+    group: 1,
+    sublabel: 'Starting level',
+    label: 'Willing to begin with middle-school or sub-varsity games?',
+    type: 'willing',
+    required: true,
+    whyWeAsk:
+      'Most officials start sub-varsity. Knowing your comfort sets the right expectations from day one.',
+  },
+  {
+    id: 'evening_location_type',
+    group: 1,
+    sublabel: 'Evening location',
+    label: 'Where are you typically located around 6:00–6:30 p.m.?',
+    type: 'evening',
+    required: false,
+    locationNote: true,
+    whyWeAsk:
+      'A different evening base can open chapters whose game times start later in the evening.',
+  },
+  {
+    id: 'saturday_availability',
+    group: 1,
+    sublabel: 'Saturday games',
+    label: 'Are Saturdays available for you?',
+    type: 'saturday',
+    required: false,
+    whyWeAsk:
+      'Saturday games and tournaments are a big part of the schedule — helps us match your full capacity.',
+  },
   {
     id: 'experience',
-    label: 'How would you describe your current officiating experience?',
-    type: 'select',
-    options: [
-      { value: 'new', label: 'New to officiating' },
-      { value: 'some', label: 'Some experience' },
-      { value: 'experienced', label: 'Experienced official' },
-    ],
-  },
-  { id: 'reliable_transport', label: 'Do you have reliable transportation?', type: 'boolean' },
-  {
-    id: 'chapter_preference',
-    label: 'Do you have a chapter preference?',
-    type: 'text',
-    optional: true,
+    group: 1,
+    sublabel: 'Experience level',
+    label: 'Prior officiating experience?',
+    type: 'experience',
+    required: false,
+    whyWeAsk:
+      'Helps calibrate chapter expectations and the type of support or mentorship you may want.',
   },
   {
-    id: 'share_consent',
-    label:
-      'Based on my location and availability, I authorize CrewCore to share my contact information with the basketball officials chapter I select or approve for referral.',
-    type: 'consent',
+    id: 'current_membership',
+    group: 1,
+    sublabel: 'Chapter history',
+    label: 'Do you currently hold or have you previously held chapter membership?',
+    type: 'membership',
+    required: false,
+    whyWeAsk:
+      "Tells us if you're transitioning from another chapter or starting fresh.",
+  },
+  {
+    id: 'transport_availability',
+    group: 1,
+    sublabel: 'Transportation',
+    label: 'Will you generally have transportation to reach game assignments?',
+    type: 'transport',
+    required: false,
+    whyWeAsk:
+      'Many gym sites are in suburban areas — helps us flag assignments that may be hard to reach.',
   },
 ];
 
-const INITIAL_ANSWERS: Answers = {
+const INITIAL: Answers = {
+  want_recommendation: null,
+  afternoon_location_type: '',
   weekday_afternoon_location: '',
-  home_zip: '',
   work_zip: '',
-  evening_location: '',
+  home_zip: '',
   travel_minutes: '',
   weekdays: [],
-  saturdays: null,
+  willing_low_level: '',
+  evening_location_type: '',
+  evening_location: '',
+  saturday_availability: '',
   experience: '',
-  reliable_transport: null,
-  chapter_preference: '',
+  current_membership: '',
+  transport_availability: '',
   share_consent: false,
 };
 
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+const GROUP_LABELS = ['The Situation', 'The Facts'] as const;
+
+const WEEKDAY_OPTS = [
+  { v: 'mon', l: 'Mon' },
+  { v: 'tue', l: 'Tue' },
+  { v: 'wed', l: 'Wed' },
+  { v: 'thu', l: 'Thu' },
+  { v: 'fri', l: 'Fri' },
+];
+
+const AFTERNOON_OPTS = [
+  { v: 'work', l: 'At work' },
+  { v: 'school', l: 'At school' },
+  { v: 'home', l: 'At home' },
+  { v: 'varies', l: 'Varies' },
+  { v: 'other', l: 'Other' },
+];
+
+const EVENING_OPTS = [
+  { v: 'home', l: 'Home' },
+  { v: 'work', l: 'Work' },
+  { v: 'varies', l: 'Varies' },
+  { v: 'other', l: 'Other' },
+];
+
+const inputCls =
+  'w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400';
+
+function choiceBtnCls(selected: boolean) {
+  return [
+    'rounded-2xl border px-4 py-3.5 text-sm font-semibold transition text-left',
+    selected
+      ? 'border-slate-900 bg-slate-900 text-white'
+      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+  ].join(' ');
+}
+
+const LOCATION_NOTE =
+  'We use this location only to estimate which chapter and early-game areas may be practical for you. You may enter a nearby intersection or ZIP code instead of an exact address.';
+
+// ── Illustration (desktop sidebar) ─────────────────────────────────────────────
+function RouteMap() {
+  return (
+    <div className="mt-4 hidden flex-col items-center rounded-2xl border border-slate-100 bg-slate-50 p-5 text-center lg:flex">
+      <div className="flex items-center gap-2 text-2xl">
+        <span title="Home">🏠</span>
+        <span className="text-slate-300 text-sm">—</span>
+        <span
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-lg"
+          title="Chapter"
+        >
+          🏀
+        </span>
+        <span className="text-slate-300 text-sm">—</span>
+        <span title="Work">💼</span>
+      </div>
+      <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
+        Chapter fit is about matching you to gyms that fall naturally between your daily
+        locations.
+      </p>
+    </div>
+  );
+}
+
+// ── Component ──────────────────────────────────────────────────────────────────
 export default function MakeTheCallPage() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
 
-  const [phase, setPhase] = useState<'intro' | 'questions' | 'result'>('intro');
-  const [currentQ, setCurrentQ] = useState(0);
-  const [answers, setAnswers] = useState<Answers>(INITIAL_ANSWERS);
+  const [phase, setPhase] = useState<Phase>('entry');
+  const [questionIdx, setQuestionIdx] = useState(0);
+  const [answers, setAnswers] = useState<Answers>(INITIAL);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-
+  const [confirming, setConfirming] = useState(false);
   const [result, setResult] = useState<ChapterResult | null>(null);
-  const [resultView, setResultView] = useState<'main' | 'compare' | 'review'>('main');
-
+  const [resultView, setResultView] = useState<ResultView>('main');
+  const [showResultDir, setShowResultDir] = useState(false);
   const [directory, setDirectory] = useState<ChapterDir[]>([]);
   const [directoryLoading, setDirectoryLoading] = useState(false);
-
   const [reviewReason, setReviewReason] = useState('');
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewDone, setReviewDone] = useState(false);
-
   const [referralBusy, setReferralBusy] = useState<Record<string, boolean>>({});
-  const [referralResults, setReferralResults] = useState<Record<string, { ok: boolean; reason?: string }>>({});
+  const [referralResults, setReferralResults] = useState<
+    Record<string, { ok: boolean; reason?: string }>
+  >({});
 
-  const q = QUESTIONS[currentQ];
-
-  const setAnswer = <K extends keyof Answers>(key: K, value: Answers[K]) => {
+  const setAnswer = <K extends keyof Answers>(key: K, value: Answers[K]) =>
     setAnswers((prev) => ({ ...prev, [key]: value }));
-  };
 
-  const canProceed = (): boolean => {
-    if (!q || q.optional) return true;
-    const val = answers[q.id];
-    if (q.type === 'boolean') return val !== null;
-    if (q.type === 'multiselect') return Array.isArray(val) && (val as string[]).length > 0;
-    if (q.type === 'consent') return val === true;
-    if (q.type === 'select') return typeof val === 'string' && val !== '';
-    return typeof val === 'string' && (val as string).trim() !== '';
-  };
-
-  const handleNext = async () => {
-    if (currentQ < QUESTIONS.length - 1) {
-      setCurrentQ((c) => c + 1);
-      return;
-    }
+  // ── Save profile & get result ──────────────────────────────────────────────
+  const saveAndRecommend = async (finalAnswers: Answers) => {
     setSaving(true);
     setSaveError(null);
 
+    const profile = {
+      want_recommendation: finalAnswers.want_recommendation,
+      afternoon_location_type: finalAnswers.afternoon_location_type || null,
+      weekday_afternoon_location: finalAnswers.weekday_afternoon_location || null,
+      work_zip: finalAnswers.work_zip || null,
+      home_zip: finalAnswers.home_zip || null,
+      travel_minutes: finalAnswers.travel_minutes || null,
+      weekdays: finalAnswers.weekdays.length ? finalAnswers.weekdays : null,
+      willing_low_level: finalAnswers.willing_low_level || null,
+      evening_location_type: finalAnswers.evening_location_type || null,
+      evening_location: finalAnswers.evening_location || null,
+      saturday_availability: finalAnswers.saturday_availability || null,
+      experience: finalAnswers.experience || null,
+      current_membership: finalAnswers.current_membership || null,
+      transport_availability: finalAnswers.transport_availability || null,
+      share_consent: finalAnswers.share_consent,
+    };
+
     const { error: saveErr } = await (supabase as any).rpc('save_placement_profile', {
       p_token: token,
-      p_profile: {
-        weekday_afternoon_location: answers.weekday_afternoon_location || null,
-        home_zip: answers.home_zip || null,
-        work_zip: answers.work_zip || null,
-        evening_location: answers.evening_location || null,
-        travel_minutes: answers.travel_minutes ? answers.travel_minutes : null,
-        weekdays: answers.weekdays,
-        saturdays: answers.saturdays,
-        experience: answers.experience || null,
-        reliable_transport: answers.reliable_transport,
-        chapter_preference: answers.chapter_preference || null,
-        share_consent: answers.share_consent,
-      },
+      p_profile: profile,
     });
 
     if (saveErr) {
-      setSaveError(saveErr.message ?? 'Failed to save your answers. Please try again.');
+      setSaveError(saveErr.message ?? 'Failed to save. Please try again.');
       setSaving(false);
       return;
     }
@@ -198,18 +350,26 @@ export default function MakeTheCallPage() {
     setResult(recData as ChapterResult);
     setSaving(false);
     setPhase('result');
+    setResultView('main');
+    setShowResultDir(false);
   };
 
   const loadDirectory = async () => {
+    if (directory.length > 0) return;
     setDirectoryLoading(true);
     const { data } = await (supabase as any).rpc('list_chapters_directory', {});
     setDirectory((data ?? []) as ChapterDir[]);
     setDirectoryLoading(false);
   };
 
-  const handleCompare = () => {
-    setResultView('compare');
-    if (directory.length === 0) loadDirectory();
+  const handleConfirmAndContinue = async () => {
+    if (!result) return;
+    setConfirming(true);
+    await (supabase as any).rpc('confirm_placement', {
+      p_token: token,
+      p_chapter_id: result.primary.chapter_id,
+    });
+    navigate(`/r/${token}`);
   };
 
   const handleRefer = async (chapterId: string) => {
@@ -220,14 +380,12 @@ export default function MakeTheCallPage() {
       p_share_consent: answers.share_consent,
     });
     setReferralBusy((prev) => ({ ...prev, [chapterId]: false }));
-    if (error) {
-      setReferralResults((prev) => ({ ...prev, [chapterId]: { ok: false, reason: error.message } }));
-    } else {
-      setReferralResults((prev) => ({
-        ...prev,
-        [chapterId]: data as { ok: boolean; reason?: string },
-      }));
-    }
+    setReferralResults((prev) => ({
+      ...prev,
+      [chapterId]: error
+        ? { ok: false, reason: error.message }
+        : (data as { ok: boolean; reason?: string }),
+    }));
   };
 
   const handleRequestReview = async () => {
@@ -240,14 +398,51 @@ export default function MakeTheCallPage() {
     setReviewDone(true);
   };
 
-  const inputCls =
-    'w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400';
+  // ── Entry path handlers ────────────────────────────────────────────────────
+  const handleGuided = async () => {
+    const updated = { ...answers, want_recommendation: 'recommend' as const };
+    setAnswers(updated);
+    setPhase('questions');
+    setQuestionIdx(0);
+  };
 
-  const primaryBtn =
-    'w-full rounded-2xl bg-slate-900 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60';
+  const handleCompareEntry = async () => {
+    const updated = { ...answers, want_recommendation: 'compare' as const };
+    setAnswers(updated);
+    setPhase('compare');
+    loadDirectory();
+  };
 
-  const secondaryBtn =
-    'w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50';
+  // ── Question navigation ────────────────────────────────────────────────────
+  const q = QUESTIONS[questionIdx];
+
+  const canProceed = (): boolean => {
+    if (!q || !q.required) return true;
+    const val = answers[q.id];
+    if (q.type === 'weekdays') return Array.isArray(val) && (val as string[]).length > 0;
+    return typeof val === 'string' && (val as string).trim() !== '';
+  };
+
+  const advanceQuestion = async (skipCurrent = false) => {
+    const isLast = questionIdx === QUESTIONS.length - 1;
+    if (isLast) {
+      await saveAndRecommend(answers);
+    } else {
+      setQuestionIdx((i) => i + 1);
+    }
+    void skipCurrent;
+  };
+
+  const goBack = () => {
+    if (questionIdx === 0) {
+      setPhase('entry');
+    } else {
+      setQuestionIdx((i) => i - 1);
+    }
+  };
+
+  // ── Shell wrapper ──────────────────────────────────────────────────────────
+  const groupLabel = phase === 'questions' && q ? GROUP_LABELS[q.group] : '';
 
   const Shell = ({ children }: { children: React.ReactNode }) => (
     <div className="flex min-h-screen flex-col bg-white">
@@ -255,250 +450,503 @@ export default function MakeTheCallPage() {
         <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
           CrewCore
         </p>
-        <p className="mt-0.5 text-lg font-bold text-white">Make the Call.</p>
+        <p className="mt-0.5 text-lg font-bold text-white">
+          Make the Call{groupLabel ? ` · ${groupLabel}` : '.'}
+        </p>
       </header>
-      <div className="flex flex-1 flex-col px-5 py-7 sm:mx-auto sm:w-full sm:max-w-md">
+      <div className="flex flex-1 flex-col px-5 py-6 sm:mx-auto sm:w-full sm:max-w-2xl">
         {children}
       </div>
     </div>
   );
 
-  // ── Intro ──────────────────────────────────────────────────────────────────
-  if (phase === 'intro') {
+  // ── Render question input ──────────────────────────────────────────────────
+  const renderInput = () => {
+    if (!q) return null;
+
+    const singleChoice = (opts: { v: string; l: string }[], field: keyof Answers) => {
+      const val = answers[field] as string;
+      return (
+        <div className="flex flex-col gap-2">
+          {opts.map(({ v, l }) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setAnswer(field, v)}
+              className={choiceBtnCls(val === v)}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      );
+    };
+
+    if (q.type === 'afternoon-type') return singleChoice(AFTERNOON_OPTS, 'afternoon_location_type');
+
+    if (q.type === 'zip') {
+      const field = q.id as 'weekday_afternoon_location' | 'work_zip' | 'home_zip';
+      return (
+        <input
+          type="text"
+          inputMode="numeric"
+          value={answers[field]}
+          onChange={(e) => setAnswer(field, e.target.value)}
+          placeholder="ZIP code or nearest intersection"
+          className={inputCls}
+          autoComplete="postal-code"
+        />
+      );
+    }
+
+    if (q.type === 'travel') {
+      const opts = [
+        { v: '15', l: '15 min' },
+        { v: '30', l: '30 min' },
+        { v: '45', l: '45 min' },
+        { v: '60', l: '60+ min' },
+      ];
+      const val = answers.travel_minutes;
+      return (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {opts.map(({ v, l }) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setAnswer('travel_minutes', v)}
+              className={choiceBtnCls(val === v)}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    if (q.type === 'weekdays') {
+      const selected = answers.weekdays;
+      return (
+        <div className="flex flex-wrap gap-2">
+          {WEEKDAY_OPTS.map(({ v, l }) => {
+            const on = selected.includes(v);
+            return (
+              <button
+                key={v}
+                type="button"
+                onClick={() =>
+                  setAnswer('weekdays', on ? selected.filter((x) => x !== v) : [...selected, v])
+                }
+                className={[
+                  'rounded-xl border px-5 py-3 text-sm font-semibold transition',
+                  on
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+                ].join(' ')}
+              >
+                {l}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (q.type === 'willing')
+      return singleChoice(
+        [
+          { v: 'yes', l: 'Yes' },
+          { v: 'maybe', l: 'Maybe — open to it' },
+          { v: 'no', l: "No — I'm targeting varsity" },
+        ],
+        'willing_low_level',
+      );
+
+    if (q.type === 'evening') {
+      const typeVal = answers.evening_location_type;
+      const needsZip = typeVal && typeVal !== 'home';
+      return (
+        <div className="flex flex-col gap-3">
+          {singleChoice(EVENING_OPTS, 'evening_location_type')}
+          {needsZip ? (
+            <input
+              type="text"
+              inputMode="numeric"
+              value={answers.evening_location}
+              onChange={(e) => setAnswer('evening_location', e.target.value)}
+              placeholder="ZIP code or nearest intersection"
+              className={inputCls}
+              autoComplete="postal-code"
+            />
+          ) : null}
+        </div>
+      );
+    }
+
+    if (q.type === 'saturday')
+      return singleChoice(
+        [
+          { v: 'yes', l: 'Yes' },
+          { v: 'sometimes', l: 'Sometimes' },
+          { v: 'no', l: 'No' },
+        ],
+        'saturday_availability',
+      );
+
+    if (q.type === 'experience')
+      return singleChoice(
+        [
+          { v: 'none', l: 'None' },
+          { v: 'youth', l: 'Youth / rec leagues' },
+          { v: 'school', l: 'School level' },
+          { v: 'college', l: 'College level' },
+          { v: 'other', l: 'Other' },
+        ],
+        'experience',
+      );
+
+    if (q.type === 'membership')
+      return singleChoice(
+        [
+          { v: 'yes', l: 'Yes — currently a member' },
+          { v: 'no', l: 'No — starting fresh' },
+          { v: 'previously', l: 'Previously — not currently' },
+        ],
+        'current_membership',
+      );
+
+    if (q.type === 'transport')
+      return singleChoice(
+        [
+          { v: 'yes', l: 'Yes — reliable transportation' },
+          { v: 'most', l: 'Most of the time' },
+          { v: 'assistance', l: 'I may need assistance' },
+        ],
+        'transport_availability',
+      );
+
+    return null;
+  };
+
+  // ── Chapter directory view (shared between compare + result sub-view) ───────
+  const DirectoryView = () => (
+    <div className="space-y-3">
+      {/* Consent for referrals */}
+      <button
+        type="button"
+        onClick={() => setAnswer('share_consent', !answers.share_consent)}
+        className="flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition"
+        style={{
+          borderColor: answers.share_consent ? '#0f172a' : '#e2e8f0',
+          backgroundColor: answers.share_consent ? '#f8fafc' : 'white',
+        }}
+      >
+        <span
+          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition"
+          style={{
+            borderColor: answers.share_consent ? '#0f172a' : '#cbd5e1',
+            backgroundColor: answers.share_consent ? '#0f172a' : 'white',
+          }}
+        >
+          {answers.share_consent ? (
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path
+                d="M2 5l2.5 2.5L8 3"
+                stroke="white"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : null}
+        </span>
+        <p className="text-xs leading-relaxed text-slate-600">
+          I authorize CrewCore to share my contact information with the chapter I select or approve
+          for referral.{' '}
+          <span className="text-slate-400">(Required to use "Refer me.")</span>
+        </p>
+      </button>
+
+      {directoryLoading ? (
+        <p className="py-4 text-center text-sm text-slate-400">Loading directory…</p>
+      ) : (
+        directory.map((ch) => {
+          const ref = referralResults[ch.id];
+          return (
+            <div key={ch.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">{ch.name}</p>
+                  <p className="text-xs text-slate-500">{ch.region}</p>
+                  {ch.coverage_note ? (
+                    <p className="mt-1 text-xs text-slate-400">{ch.coverage_note}</p>
+                  ) : null}
+                </div>
+                {ch.is_integrated ? (
+                  <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                    Integrated
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {ch.recruitment_url ? (
+                  <a
+                    href={ch.recruitment_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Visit website
+                  </a>
+                ) : null}
+                {ch.contact_email ? (
+                  <a
+                    href={`mailto:${ch.contact_email}`}
+                    className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Email chapter
+                  </a>
+                ) : null}
+                {!ch.is_integrated ? (
+                  ref ? (
+                    ref.ok ? (
+                      <span className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                        Referral sent ✓
+                      </span>
+                    ) : ref.reason === 'consent_required' ? (
+                      <span className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                        Enable consent above first
+                      </span>
+                    ) : (
+                      <span className="rounded-xl bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
+                        {ref.reason ?? 'Error'}
+                      </span>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={referralBusy[ch.id]}
+                      onClick={() => handleRefer(ch.id)}
+                      className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:opacity-50"
+                    >
+                      {referralBusy[ch.id] ? 'Sending…' : 'Refer me'}
+                    </button>
+                  )
+                ) : null}
+              </div>
+            </div>
+          );
+        })
+      )}
+      {!directoryLoading && directory.length === 0 ? (
+        <p className="text-sm text-slate-400">No chapters in the directory yet.</p>
+      ) : null}
+    </div>
+  );
+
+  // ── ENTRY SCREEN ───────────────────────────────────────────────────────────
+  if (phase === 'entry') {
     return (
       <Shell>
         <div className="flex flex-1 flex-col justify-center">
           <h1 className="text-3xl font-bold text-slate-900">Make the Call.</h1>
           <p className="mt-3 text-base leading-relaxed text-slate-600">
-            Let&apos;s determine the most practical place to begin your officiating journey.
+            Would you like CrewCore to recommend a chapter, or would you prefer to browse chapters
+            yourself?
           </p>
-          <p className="mt-4 text-sm text-slate-500">
-            Answer {QUESTIONS.length} quick questions about where you are, when you&apos;re
-            available, and your experience — and we&apos;ll match you to the right chapter.
-          </p>
+          <p className="mt-2 text-sm text-slate-400">Takes about 2 minutes.</p>
+
+          <div className="mt-8 flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={handleGuided}
+              className="w-full rounded-2xl bg-slate-900 px-4 py-4 text-sm font-semibold text-white transition hover:bg-slate-700"
+            >
+              Make the Call for me
+              <span className="ml-2 text-slate-400">→</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleCompareEntry}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Let me compare chapters
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(`/r/${token}`)}
+              className="mt-1 w-full px-4 py-2 text-sm text-slate-400 transition hover:text-slate-600"
+            >
+              Back to my checklist
+            </button>
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+
+  // ── COMPARE SCREEN (entry-path) ────────────────────────────────────────────
+  if (phase === 'compare') {
+    return (
+      <Shell>
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Browse chapters</h2>
+            <p className="mt-0.5 text-sm text-slate-500">
+              DBOA is the only chapter currently integrated with CrewCore. More are coming.
+            </p>
+          </div>
           <button
             type="button"
-            onClick={() => setPhase('questions')}
-            className={`mt-8 ${primaryBtn}`}
+            onClick={() => setPhase('entry')}
+            className="shrink-0 text-sm font-semibold text-slate-400 hover:text-slate-600"
           >
-            Start
+            ← Back
           </button>
+        </div>
+
+        <DirectoryView />
+
+        <div className="mt-6 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-700">
+            Want a recommendation instead?
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Answer a few questions and we&apos;ll tell you which chapter fits best.
+          </p>
           <button
             type="button"
-            onClick={() => navigate(`/r/${token}`)}
-            className={`mt-3 ${secondaryBtn}`}
+            onClick={() => {
+              const updated = { ...answers, want_recommendation: 'recommend' as const };
+              setAnswers(updated);
+              setPhase('questions');
+              setQuestionIdx(0);
+            }}
+            className="mt-3 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-700"
           >
-            Back to my checklist
+            Get a recommendation
           </button>
         </div>
       </Shell>
     );
   }
 
-  // ── Questions ──────────────────────────────────────────────────────────────
+  // ── QUESTION SCREEN ────────────────────────────────────────────────────────
   if (phase === 'questions') {
-    const progress = Math.round((currentQ / QUESTIONS.length) * 100);
+    const currentGroup = q?.group ?? 0;
+    const isLast = questionIdx === QUESTIONS.length - 1;
 
-    const renderInput = () => {
-      if (!q) return null;
-
-      if (q.type === 'text' || q.type === 'number') {
-        return (
-          <input
-            type={q.type === 'number' ? 'number' : 'text'}
-            value={answers[q.id] as string}
-            onChange={(e) => setAnswer(q.id as 'travel_minutes', e.target.value)}
-            placeholder={q.optional ? 'Optional — leave blank to skip' : ''}
-            min={q.type === 'number' ? 0 : undefined}
-            className={inputCls}
-          />
-        );
-      }
-
-      if (q.type === 'boolean') {
-        const val = answers[q.id] as boolean | null;
-        return (
-          <div className="flex gap-3">
-            {([{ label: 'Yes', v: true }, { label: 'No', v: false }] as const).map(({ label, v }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => setAnswer(q.id as 'saturdays', v)}
-                className="flex-1 rounded-2xl border py-3.5 text-sm font-semibold transition"
-                style={{
-                  backgroundColor: val === v ? '#0f172a' : 'white',
-                  color: val === v ? 'white' : '#334155',
-                  borderColor: val === v ? '#0f172a' : '#e2e8f0',
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        );
-      }
-
-      if (q.type === 'select' && q.options) {
-        const val = answers[q.id] as string;
-        return (
-          <div className="flex flex-col gap-2">
-            {q.options.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setAnswer(q.id as 'experience', opt.value)}
-                className="rounded-2xl border px-4 py-3.5 text-left text-sm font-semibold transition"
-                style={{
-                  backgroundColor: val === opt.value ? '#0f172a' : 'white',
-                  color: val === opt.value ? 'white' : '#334155',
-                  borderColor: val === opt.value ? '#0f172a' : '#e2e8f0',
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        );
-      }
-
-      if (q.type === 'multiselect') {
-        const selected = answers.weekdays;
-        return (
-          <div className="flex flex-wrap gap-2">
-            {(q.options ?? []).map((opt) => {
-              const isSelected = selected.includes(opt.value);
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() =>
-                    setAnswer(
-                      'weekdays',
-                      isSelected
-                        ? selected.filter((v) => v !== opt.value)
-                        : [...selected, opt.value],
-                    )
-                  }
-                  className="rounded-xl border px-5 py-3 text-sm font-semibold transition"
-                  style={{
-                    backgroundColor: isSelected ? '#0f172a' : 'white',
-                    color: isSelected ? 'white' : '#334155',
-                    borderColor: isSelected ? '#0f172a' : '#e2e8f0',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        );
-      }
-
-      if (q.type === 'consent') {
-        return (
-          <button
-            type="button"
-            onClick={() => setAnswer('share_consent', !answers.share_consent)}
-            className="flex items-start gap-3 rounded-2xl border p-4 text-left transition"
-            style={{
-              borderColor: answers.share_consent ? '#0f172a' : '#e2e8f0',
-              backgroundColor: answers.share_consent ? '#f8fafc' : 'white',
-            }}
-          >
-            <span
-              className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition"
-              style={{
-                borderColor: answers.share_consent ? '#0f172a' : '#cbd5e1',
-                backgroundColor: answers.share_consent ? '#0f172a' : 'white',
-              }}
-            >
-              {answers.share_consent ? (
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <path
-                    d="M2 5l2.5 2.5L8 3"
-                    stroke="white"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              ) : null}
-            </span>
-            <p className="text-sm leading-relaxed text-slate-700">{q.label}</p>
-          </button>
-        );
-      }
-
-      return null;
-    };
+    // 3-step progress: group 0 = step 0, group 1 = step 1, result = step 2
+    const currentStep = currentGroup;
 
     return (
       <Shell>
-        {/* Progress bar */}
-        <div className="mb-6">
-          <div className="mb-1.5 flex justify-between text-xs text-slate-400">
+        {/* Progress indicator */}
+        <div className="mb-5">
+          <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
             <span>
-              Question {currentQ + 1} of {QUESTIONS.length}
+              Step {currentStep + 1} of 3 ·{' '}
+              <span className="font-semibold text-slate-600">
+                {GROUP_LABELS[currentGroup]}
+              </span>
             </span>
-            <span>{progress}%</span>
+            <span>{q?.sublabel}</span>
           </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-slate-900 transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
+          <div className="flex gap-1">
+            {[0, 1, 2].map((seg) => (
+              <div
+                key={seg}
+                className={`h-1.5 flex-1 rounded-full transition-all ${
+                  seg < currentStep
+                    ? 'bg-slate-900'
+                    : seg === currentStep
+                      ? 'bg-slate-400'
+                      : 'bg-slate-100'
+                }`}
+              />
+            ))}
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col">
-          {q?.category ? (
-            <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-slate-400">
-              {q.category}
-            </p>
-          ) : null}
-          <h2 className="text-lg font-semibold leading-snug text-slate-900">{q?.label}</h2>
-          {q?.optional ? (
-            <p className="mt-1 text-xs text-slate-400">Optional — you can skip this.</p>
-          ) : null}
+        {/* Two-column on lg, stacked on mobile */}
+        <div className="flex flex-1 flex-col lg:flex-row lg:gap-10">
+          {/* Left: question + answer */}
+          <div className="flex flex-1 flex-col">
+            <h2 className="text-lg font-semibold leading-snug text-slate-900">{q?.label}</h2>
+            {!q?.required ? (
+              <p className="mt-0.5 text-xs text-slate-400">Optional — you can skip this.</p>
+            ) : null}
 
-          <div className="mt-5">{renderInput()}</div>
+            <div className="mt-5">{renderInput()}</div>
 
-          {saveError ? (
-            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">
-              {saveError}
-            </p>
-          ) : null}
+            {q?.locationNote ? (
+              <p className="mt-3 text-xs leading-relaxed text-slate-400">{LOCATION_NOTE}</p>
+            ) : null}
 
-          <div className="mt-auto flex flex-col gap-3 pt-8">
-            <button
-              type="button"
-              disabled={!canProceed() || saving}
-              onClick={handleNext}
-              className={primaryBtn}
-            >
-              {saving
-                ? 'Finding your match…'
-                : currentQ < QUESTIONS.length - 1
-                  ? 'Next'
-                  : 'See the Call'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (currentQ > 0) setCurrentQ((c) => c - 1);
-                else setPhase('intro');
-              }}
-              className={secondaryBtn}
-            >
-              Back
-            </button>
+            {/* Mobile: why we ask */}
+            {q?.whyWeAsk ? (
+              <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4 lg:hidden">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                  Why we ask
+                </p>
+                <p className="text-sm leading-relaxed text-slate-600">{q.whyWeAsk}</p>
+              </div>
+            ) : null}
+
+            {saveError ? (
+              <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">
+                {saveError}
+              </p>
+            ) : null}
+
+            <div className="mt-auto flex flex-col gap-2.5 pt-8">
+              <button
+                type="button"
+                disabled={!canProceed() || saving}
+                onClick={() => advanceQuestion(false)}
+                className="w-full rounded-2xl bg-slate-900 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
+              >
+                {saving ? 'Finding your match…' : isLast ? 'See the Call' : 'Next'}
+              </button>
+
+              {!q?.required ? (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => advanceQuestion(true)}
+                  className="w-full py-2 text-sm text-slate-400 transition hover:text-slate-600"
+                >
+                  Skip for now.
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={goBack}
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                Back
+              </button>
+            </div>
           </div>
+
+          {/* Right: why we ask + illustration (desktop only) */}
+          <aside className="hidden w-64 shrink-0 lg:block">
+            {q?.whyWeAsk ? (
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                  Why we ask
+                </p>
+                <p className="text-sm leading-relaxed text-slate-600">{q.whyWeAsk}</p>
+              </div>
+            ) : null}
+            <RouteMap />
+          </aside>
         </div>
       </Shell>
     );
   }
 
-  // ── Result ─────────────────────────────────────────────────────────────────
+  // ── RESULT SCREEN ──────────────────────────────────────────────────────────
   if (!result) {
     return (
       <Shell>
@@ -507,105 +955,6 @@ export default function MakeTheCallPage() {
     );
   }
 
-  // Compare view
-  if (resultView === 'compare') {
-    return (
-      <Shell>
-        <button
-          type="button"
-          onClick={() => setResultView('main')}
-          className="mb-4 flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-700"
-        >
-          ← Back to The Call
-        </button>
-        <h2 className="text-xl font-bold text-slate-900">Compare chapters</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          DBOA is the chapter currently integrated with CrewCore. More Metroplex chapters are
-          being added — honest note: only DBOA manages the full workflow here today.
-        </p>
-
-        {directoryLoading ? (
-          <p className="mt-4 text-sm text-slate-400">Loading directory…</p>
-        ) : (
-          <div className="mt-4 space-y-3">
-            {directory.map((ch) => {
-              const ref = referralResults[ch.id];
-              return (
-                <div key={ch.id} className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{ch.name}</p>
-                      <p className="text-xs text-slate-500">{ch.region}</p>
-                      {ch.coverage_note ? (
-                        <p className="mt-1 text-xs text-slate-400">{ch.coverage_note}</p>
-                      ) : null}
-                    </div>
-                    {ch.is_integrated ? (
-                      <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                        Integrated
-                      </span>
-                    ) : null}
-                  </div>
-
-                  {!ch.is_integrated ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {ch.recruitment_url ? (
-                        <a
-                          href={ch.recruitment_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                        >
-                          Visit website
-                        </a>
-                      ) : null}
-                      {ch.contact_email ? (
-                        <a
-                          href={`mailto:${ch.contact_email}`}
-                          className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                        >
-                          Email chapter
-                        </a>
-                      ) : null}
-                      {ref ? (
-                        ref.ok ? (
-                          <span className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                            Referral sent ✓
-                          </span>
-                        ) : ref.reason === 'consent_required' ? (
-                          <span className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
-                            Consent required — go back and check question 11
-                          </span>
-                        ) : (
-                          <span className="rounded-xl bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
-                            {ref.reason ?? 'Error sending referral'}
-                          </span>
-                        )
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={referralBusy[ch.id]}
-                          onClick={() => handleRefer(ch.id)}
-                          className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:opacity-50"
-                        >
-                          {referralBusy[ch.id] ? 'Sending…' : 'Refer me'}
-                        </button>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-            {directory.length === 0 && !directoryLoading ? (
-              <p className="text-sm text-slate-400">No additional chapters in the directory yet.</p>
-            ) : null}
-          </div>
-        )}
-      </Shell>
-    );
-  }
-
-  // Human review view
   if (resultView === 'review') {
     return (
       <Shell>
@@ -618,14 +967,13 @@ export default function MakeTheCallPage() {
         </button>
         <h2 className="text-xl font-bold text-slate-900">Request human review</h2>
         <p className="mt-1 text-sm text-slate-500">
-          A CrewCore coordinator will look at your situation and follow up directly.
+          A CrewCore coordinator will review your situation and follow up directly.
         </p>
-
         {reviewDone ? (
           <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-5">
             <p className="text-sm font-semibold text-emerald-800">Request submitted.</p>
             <p className="mt-1 text-xs text-emerald-700">
-              A coordinator will review and reach out soon.
+              A coordinator will reach out soon.
             </p>
           </div>
         ) : (
@@ -633,7 +981,7 @@ export default function MakeTheCallPage() {
             <textarea
               value={reviewReason}
               onChange={(e) => setReviewReason(e.target.value)}
-              placeholder="Anything you'd like to share about your situation (optional)"
+              placeholder="Anything you'd like to share (optional)"
               rows={4}
               className="mt-5 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400"
             />
@@ -641,7 +989,7 @@ export default function MakeTheCallPage() {
               type="button"
               disabled={reviewBusy}
               onClick={handleRequestReview}
-              className={`mt-4 ${primaryBtn}`}
+              className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
             >
               {reviewBusy ? 'Submitting…' : 'Submit request'}
             </button>
@@ -654,6 +1002,21 @@ export default function MakeTheCallPage() {
   // Main result view
   return (
     <Shell>
+      {/* Step 3 of 3 indicator */}
+      <div className="mb-5">
+        <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+          <span>
+            Step 3 of 3 ·{' '}
+            <span className="font-semibold text-slate-600">The Call</span>
+          </span>
+        </div>
+        <div className="flex gap-1">
+          {[0, 1, 2].map((seg) => (
+            <div key={seg} className="h-1.5 flex-1 rounded-full bg-slate-900" />
+          ))}
+        </div>
+      </div>
+
       <h1 className="text-2xl font-bold text-slate-900">The Call.</h1>
 
       <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-5">
@@ -670,18 +1033,41 @@ export default function MakeTheCallPage() {
       <div className="mt-6 flex flex-col gap-3">
         <button
           type="button"
-          onClick={() => navigate(`/r/${token}`)}
-          className={primaryBtn}
+          disabled={confirming}
+          onClick={handleConfirmAndContinue}
+          className="w-full rounded-2xl bg-slate-900 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
         >
-          Continue with {result.primary.name}
+          {confirming ? 'Confirming…' : `Continue with ${result.primary.name}`}
         </button>
-        <button type="button" onClick={handleCompare} className={secondaryBtn}>
-          Compare other chapters
+        <button
+          type="button"
+          onClick={() => {
+            setShowResultDir((v) => !v);
+            loadDirectory();
+          }}
+          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+        >
+          {showResultDir ? 'Hide other chapters ↑' : 'Compare other chapters'}
         </button>
-        <button type="button" onClick={() => setResultView('review')} className={secondaryBtn}>
+        <button
+          type="button"
+          onClick={() => setResultView('review')}
+          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+        >
           Request human review
         </button>
       </div>
+
+      {showResultDir ? (
+        <div className="mt-6">
+          <p className="mb-3 text-sm font-semibold text-slate-700">Other chapters</p>
+          <p className="mb-3 text-xs text-slate-500">
+            DBOA is the only chapter currently integrated with CrewCore. More Metroplex chapters
+            are being added.
+          </p>
+          <DirectoryView />
+        </div>
+      ) : null}
     </Shell>
   );
 }

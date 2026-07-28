@@ -64,6 +64,7 @@ type RegistrationResponse = {
     chapter: string;
     season: string;
     sport: string;
+    placement_confirmed: boolean;
     person: { email: string | null; full_name: string | null };
   };
   steps: RegistrationStep[];
@@ -791,6 +792,8 @@ export default function RecruitMenuPage() {
   // ── Derived values ────────────────────────────────────────────────────────
 
   const { cycle, steps } = registration;
+  // Default true so existing sessions (pre-migration-025) aren't accidentally locked
+  const placementConfirmed = cycle.placement_confirmed ?? true;
   const sortedSteps = steps.slice().sort((a, b) => a.sort_order - b.sort_order);
   const completedCount = sortedSteps.filter((s) => s.status === 'complete').length;
   const progressPct = sortedSteps.length > 0 ? Math.round((completedCount / sortedSteps.length) * 100) : 0;
@@ -952,7 +955,7 @@ export default function RecruitMenuPage() {
                   className="mt-1.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold"
                   style={{ backgroundColor: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0' }}
                 >
-                  💰 Earn it back in ~{earnBackGames} games — then every whistle is profit.
+                  About 4–5 middle-school games covers your first-year fees — then every whistle is profit.
                 </p>
               ) : null}
             </div>
@@ -1095,15 +1098,19 @@ export default function RecruitMenuPage() {
       </Card>
 
       {/* ── Make the Call entry ── */}
-      <Card className="mt-4 p-5">
+      <Card className={`mt-4 p-5 ${!placementConfirmed ? 'ring-2 ring-slate-900' : ''}`}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-              Chapter fit
+              {placementConfirmed ? 'Chapter fit' : 'Your first step'}
             </p>
-            <h3 className="mt-0.5 text-base font-semibold text-slate-900">Make the Call.</h3>
+            <h3 className="mt-0.5 text-base font-semibold text-slate-900">
+              {placementConfirmed ? 'Make the Call.' : 'First, make the call.'}
+            </h3>
             <p className="mt-1 text-sm text-slate-500">
-              Find your best-fit chapter based on where you live, work, and are available.
+              {placementConfirmed
+                ? 'Find your best-fit chapter based on where you live, work, and are available.'
+                : 'Choose the chapter that fits where you live and work. Your path unlocks once you do.'}
             </p>
           </div>
           <span className="text-2xl" aria-hidden="true">📍</span>
@@ -1112,7 +1119,7 @@ export default function RecruitMenuPage() {
           to={`/r/${token}/make-the-call`}
           className="mt-4 block rounded-2xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-slate-700"
         >
-          Find my best-fit chapter
+          {placementConfirmed ? "Find my best-fit chapter" : "Make the Call — let’s go"}
         </Link>
       </Card>
 
@@ -1146,12 +1153,15 @@ export default function RecruitMenuPage() {
             // ── Step row ──
             const { step, idx } = item;
             const nodeState: 'complete' | 'current' | 'locked' =
-              step.status === 'complete'
-                ? 'complete'
-                : step.status === 'available'
-                  ? 'current'
-                  : 'locked';
-            const railColor = step.status === 'complete' ? '#059669' : '#e2e8f0';
+              !placementConfirmed
+                ? 'locked'
+                : step.status === 'complete'
+                  ? 'complete'
+                  : step.status === 'available'
+                    ? 'current'
+                    : 'locked';
+            const railColor =
+              !placementConfirmed ? '#e2e8f0' : step.status === 'complete' ? '#059669' : '#e2e8f0';
             const prereq = step.prerequisite_step_id
               ? sortedSteps.find((s) => s.step_id === step.prerequisite_step_id)
               : null;
@@ -1205,7 +1215,7 @@ export default function RecruitMenuPage() {
                   <div className="flex items-start justify-between gap-2">
                     <h3
                       className={`text-sm font-semibold leading-snug ${
-                        step.status === 'locked' ? 'text-slate-400' : 'text-slate-900'
+                        !placementConfirmed || step.status === 'locked' ? 'text-slate-400' : 'text-slate-900'
                       }`}
                     >
                       {step.name}
@@ -1267,10 +1277,12 @@ export default function RecruitMenuPage() {
                     </p>
                   ) : null}
 
-                  <div className="mt-2">{renderStepAction(step)}</div>
+                  {placementConfirmed ? (
+                    <div className="mt-2">{renderStepAction(step)}</div>
+                  ) : null}
 
                   {/* ── Attendance session list ── */}
-                  {step.step_type === 'attendance' ? (
+                  {step.step_type === 'attendance' && placementConfirmed ? (
                     <div className="mt-3">
                       <button
                         type="button"
