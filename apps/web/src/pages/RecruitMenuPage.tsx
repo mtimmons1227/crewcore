@@ -932,6 +932,33 @@ export default function RecruitMenuPage() {
         </div>
       </header>
 
+      {/* ── Welcome video (plays on arrival) ── */}
+      <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="px-4 pt-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            Welcome — a message for you
+          </div>
+          <div className="mt-0.5 text-base font-semibold text-slate-900">
+            A welcome from DBOA President Harold C. Young, II
+          </div>
+        </div>
+        <div className="px-4 pb-4 pt-3">
+          <div
+            className="relative overflow-hidden rounded-xl bg-slate-900"
+            style={{ aspectRatio: '16 / 9' }}
+          >
+            <iframe
+              src="https://share.synthesia.io/embeds/videos/ae42567e-9aa5-4bf1-bc30-4e192c3ca77e"
+              title="Welcome to DBOA"
+              allow="autoplay; fullscreen; encrypted-media"
+              allowFullScreen
+              loading="lazy"
+              className="absolute inset-0 h-full w-full border-0"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* ── Payment success banner ── */}
       {paymentSuccess ? (
         <div className="mt-4 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-700">
