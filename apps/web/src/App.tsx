@@ -66,7 +66,7 @@ function App() {
     : isCommandCenter || isBoard
       ? 'mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8'
       : isLeadCapture
-        ? 'mx-auto w-full max-w-lg px-4 py-6 sm:px-6'
+        ? 'mx-auto w-full max-w-5xl px-4 py-6 sm:px-6'
         : 'frame';
 
   return (
