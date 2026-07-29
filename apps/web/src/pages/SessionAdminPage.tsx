@@ -16,6 +16,73 @@ type SessionRow = {
 const inputCls =
   'w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400';
 
+const selectCls =
+  'w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-900 outline-none focus:border-slate-400';
+
+// ── Time options: 7:00 AM – 9:45 PM in 15-min increments ─────────────────────
+const TIME_OPTIONS: { label: string; value: string }[] = [];
+for (let h = 7; h <= 21; h++) {
+  for (let m = 0; m < 60; m += 15) {
+    const hh = String(h).padStart(2, '0');
+    const mm = String(m).padStart(2, '0');
+    const period = h < 12 ? 'AM' : 'PM';
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    TIME_OPTIONS.push({ label: `${h12}:${mm} ${period}`, value: `${hh}:${mm}` });
+  }
+}
+
+const DURATION_OPTIONS = [
+  { label: '1 hr', value: 60 },
+  { label: '1.5 hr', value: 90 },
+  { label: '2 hr', value: 120 },
+  { label: '2.5 hr', value: 150 },
+  { label: '3 hr', value: 180 },
+];
+
+function todayStr(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function buildIso(dateStr: string, timeStr: string): string {
+  return new Date(`${dateStr}T${timeStr}`).toISOString();
+}
+
+function parseFromIso(iso: string): { date: string; time: string } {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  };
+}
+
+function snapToTimeOption(timeStr: string): string {
+  if (TIME_OPTIONS.some((t) => t.value === timeStr)) return timeStr;
+  const [hStr, mStr] = timeStr.split(':');
+  const totalMins = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
+  let best = '18:00';
+  let bestDiff = Infinity;
+  for (const opt of TIME_OPTIONS) {
+    const [oh, om] = opt.value.split(':').map(Number);
+    const diff = Math.abs(oh * 60 + om - totalMins);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = opt.value;
+    }
+  }
+  return best;
+}
+
+function snapDuration(startsIso: string, endsIso: string | null): number {
+  if (!endsIso) return 120;
+  const diff = (new Date(endsIso).getTime() - new Date(startsIso).getTime()) / 60000;
+  return DURATION_OPTIONS.map((d) => d.value).reduce((prev, curr) =>
+    Math.abs(curr - diff) < Math.abs(prev - diff) ? curr : prev,
+  );
+}
+
 function fmtDateTime(ts: string) {
   return new Date(ts).toLocaleDateString('en-US', {
     month: 'short',
@@ -25,12 +92,13 @@ function fmtDateTime(ts: string) {
   });
 }
 
-// Convert ISO timestamp to datetime-local string for <input type="datetime-local">
-function toLocalInput(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+function fmtRange(startsIso: string, endsIso: string): string {
+  const s = new Date(startsIso);
+  const e = new Date(endsIso);
+  const datePart = s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const startTime = s.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const endTime = e.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${datePart}, ${startTime}–${endTime}`;
 }
 
 export default function SessionAdminPage() {
@@ -45,18 +113,21 @@ export default function SessionAdminPage() {
 
   // Create form
   const [title, setTitle] = useState('');
-  const [startsAt, setStartsAt] = useState('');
-  const [endsAt, setEndsAt] = useState('');
+  const [date, setDate] = useState(todayStr());
+  const [startTime, setStartTime] = useState('18:00');
+  const [durationMins, setDurationMins] = useState(120);
   const [location, setLocation] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [savedRange, setSavedRange] = useState('');
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [editStartsAt, setEditStartsAt] = useState('');
-  const [editEndsAt, setEditEndsAt] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editStartTime, setEditStartTime] = useState('18:00');
+  const [editDurationMins, setEditDurationMins] = useState(120);
   const [editLocation, setEditLocation] = useState('');
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -107,16 +178,19 @@ export default function SessionAdminPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedStepId || !title || !startsAt) return;
+    if (!selectedStepId || !title || !date || !startTime) return;
     setSaving(true);
     setSaveError(null);
     setSaved(false);
 
+    const startsIso = buildIso(date, startTime);
+    const endsIso = new Date(new Date(startsIso).getTime() + durationMins * 60000).toISOString();
+
     const { error: rpcErr } = await (supabase as any).rpc('admin_create_session', {
       p_workflow_step_id: selectedStepId,
       p_title: title,
-      p_starts_at: new Date(startsAt).toISOString(),
-      p_ends_at: endsAt ? new Date(endsAt).toISOString() : null,
+      p_starts_at: startsIso,
+      p_ends_at: endsIso,
       p_location: location || null,
       p_passcode: PASSCODE,
     });
@@ -127,22 +201,26 @@ export default function SessionAdminPage() {
       return;
     }
 
+    setSavedRange(fmtRange(startsIso, endsIso));
     setSaved(true);
     setTitle('');
-    setStartsAt('');
-    setEndsAt('');
+    setDate(todayStr());
+    setStartTime('18:00');
+    setDurationMins(120);
     setLocation('');
     setSaving(false);
     loadSessions(selectedStepId);
   };
 
-  // ── Edit ─────────────────────────────────────────────────────────────────────
+  // ── Edit ──────────────────────────────────────────────────────────────────────
 
   const startEdit = (s: SessionRow) => {
+    const { date: d, time: t } = parseFromIso(s.starts_at);
     setEditingId(s.id);
     setEditTitle(s.title);
-    setEditStartsAt(toLocalInput(s.starts_at));
-    setEditEndsAt(toLocalInput(s.ends_at));
+    setEditDate(d);
+    setEditStartTime(snapToTimeOption(t));
+    setEditDurationMins(snapDuration(s.starts_at, s.ends_at));
     setEditLocation(s.location ?? '');
     setEditError(null);
     setDeletingId(null);
@@ -155,16 +233,21 @@ export default function SessionAdminPage() {
   };
 
   const handleSaveEdit = async (id: string) => {
-    if (!editTitle || !editStartsAt) return;
+    if (!editTitle || !editDate || !editStartTime) return;
     setEditSaving(true);
     setEditError(null);
+
+    const startsIso = buildIso(editDate, editStartTime);
+    const endsIso = new Date(
+      new Date(startsIso).getTime() + editDurationMins * 60000,
+    ).toISOString();
 
     const { error } = await (supabase as any).rpc('admin_update_session', {
       p_passcode: PASSCODE,
       p_session_id: id,
       p_title: editTitle,
-      p_starts_at: new Date(editStartsAt).toISOString(),
-      p_ends_at: editEndsAt ? new Date(editEndsAt).toISOString() : null,
+      p_starts_at: startsIso,
+      p_ends_at: endsIso,
       p_location: editLocation || null,
     });
 
@@ -194,11 +277,35 @@ export default function SessionAdminPage() {
     setDeletingId(null);
 
     if (!error && data?.deleted_attendance > 0) {
-      setLastDeleteNote(`Session deleted — removed ${data.deleted_attendance} check-in${data.deleted_attendance === 1 ? '' : 's'}.`);
+      setLastDeleteNote(
+        `Session deleted — removed ${data.deleted_attendance} check-in${data.deleted_attendance === 1 ? '' : 's'}.`,
+      );
     }
 
     loadSessions(selectedStepId);
   };
+
+  // ── Computed previews ─────────────────────────────────────────────────────────
+
+  const previewRange =
+    date && startTime
+      ? fmtRange(
+          buildIso(date, startTime),
+          new Date(
+            new Date(buildIso(date, startTime)).getTime() + durationMins * 60000,
+          ).toISOString(),
+        )
+      : '';
+
+  const editPreviewRange =
+    editDate && editStartTime
+      ? fmtRange(
+          buildIso(editDate, editStartTime),
+          new Date(
+            new Date(buildIso(editDate, editStartTime)).getTime() + editDurationMins * 60000,
+          ).toISOString(),
+        )
+      : '';
 
   // ── Auth gate ─────────────────────────────────────────────────────────────────
 
@@ -208,7 +315,9 @@ export default function SessionAdminPage() {
         <div className="mx-auto w-full max-w-sm">
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <h1 className="mb-1 text-lg font-semibold text-slate-900">Staff access</h1>
-            <p className="mb-4 text-sm text-slate-500">Session administration requires staff login.</p>
+            <p className="mb-4 text-sm text-slate-500">
+              Session administration requires staff login.
+            </p>
             <form onSubmit={handlePasscode} className="flex flex-col gap-3">
               <input
                 type="password"
@@ -241,9 +350,7 @@ export default function SessionAdminPage() {
       <div className="mx-auto w-full max-w-2xl space-y-4">
         <header>
           <h1 className="text-2xl font-bold text-slate-900">Session admin</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Create and manage attendance sessions.
-          </p>
+          <p className="mt-1 text-sm text-slate-500">Create and manage attendance sessions.</p>
         </header>
 
         {/* Step picker */}
@@ -285,27 +392,53 @@ export default function SessionAdminPage() {
                 className={`mt-1.5 ${inputCls}`}
               />
             </label>
-            <div className="grid grid-cols-2 gap-3">
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <label className="block text-sm font-semibold text-slate-700">
-                Starts at
+                Date
                 <input
-                  type="datetime-local"
-                  value={startsAt}
-                  onChange={(e) => setStartsAt(e.target.value)}
+                  type="date"
+                  value={date}
+                  min={todayStr()}
+                  onChange={(e) => setDate(e.target.value)}
                   required
                   className={`mt-1.5 ${inputCls}`}
                 />
               </label>
               <label className="block text-sm font-semibold text-slate-700">
-                Ends at
-                <input
-                  type="datetime-local"
-                  value={endsAt}
-                  onChange={(e) => setEndsAt(e.target.value)}
-                  className={`mt-1.5 ${inputCls}`}
-                />
+                Start time
+                <select
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className={`mt-1.5 ${selectCls}`}
+                >
+                  {TIME_OPTIONS.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm font-semibold text-slate-700">
+                Duration
+                <select
+                  value={durationMins}
+                  onChange={(e) => setDurationMins(Number(e.target.value))}
+                  className={`mt-1.5 ${selectCls}`}
+                >
+                  {DURATION_OPTIONS.map((d) => (
+                    <option key={d.value} value={d.value}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
+
+            {previewRange ? (
+              <p className="text-xs font-medium text-slate-500">{previewRange}</p>
+            ) : null}
+
             <label className="block text-sm font-semibold text-slate-700">
               Location
               <input
@@ -316,6 +449,7 @@ export default function SessionAdminPage() {
                 className={`mt-1.5 ${inputCls}`}
               />
             </label>
+
             {saveError ? (
               <p className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
                 {saveError}
@@ -323,12 +457,13 @@ export default function SessionAdminPage() {
             ) : null}
             {saved ? (
               <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                Session created.
+                Session created — {savedRange}
               </p>
             ) : null}
+
             <button
               type="submit"
-              disabled={saving || !title || !startsAt}
+              disabled={saving || !title || !date}
               className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
             >
               {saving ? 'Creating…' : 'Create session'}
@@ -367,26 +502,48 @@ export default function SessionAdminPage() {
                         placeholder="Title"
                         className={inputCls}
                       />
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div>
-                          <p className="mb-1 text-xs font-semibold text-slate-600">Starts at</p>
+                          <p className="mb-1 text-xs font-semibold text-slate-600">Date</p>
                           <input
-                            type="datetime-local"
-                            value={editStartsAt}
-                            onChange={(e) => setEditStartsAt(e.target.value)}
+                            type="date"
+                            value={editDate}
+                            onChange={(e) => setEditDate(e.target.value)}
                             className={inputCls}
                           />
                         </div>
                         <div>
-                          <p className="mb-1 text-xs font-semibold text-slate-600">Ends at</p>
-                          <input
-                            type="datetime-local"
-                            value={editEndsAt}
-                            onChange={(e) => setEditEndsAt(e.target.value)}
-                            className={inputCls}
-                          />
+                          <p className="mb-1 text-xs font-semibold text-slate-600">Start time</p>
+                          <select
+                            value={editStartTime}
+                            onChange={(e) => setEditStartTime(e.target.value)}
+                            className={selectCls}
+                          >
+                            {TIME_OPTIONS.map((t) => (
+                              <option key={t.value} value={t.value}>
+                                {t.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <p className="mb-1 text-xs font-semibold text-slate-600">Duration</p>
+                          <select
+                            value={editDurationMins}
+                            onChange={(e) => setEditDurationMins(Number(e.target.value))}
+                            className={selectCls}
+                          >
+                            {DURATION_OPTIONS.map((d) => (
+                              <option key={d.value} value={d.value}>
+                                {d.label}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </div>
+                      {editPreviewRange ? (
+                        <p className="text-xs font-medium text-slate-500">{editPreviewRange}</p>
+                      ) : null}
                       <input
                         type="text"
                         value={editLocation}
@@ -400,7 +557,7 @@ export default function SessionAdminPage() {
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          disabled={editSaving || !editTitle || !editStartsAt}
+                          disabled={editSaving || !editTitle || !editDate}
                           onClick={() => handleSaveEdit(s.id)}
                           className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
                         >
