@@ -18,3 +18,7 @@ desktop.ini
 .claude/
 *.pem
 *.key
+
+# Local temp / cache (not for version control)
+~$*
+supabase/.temp/
