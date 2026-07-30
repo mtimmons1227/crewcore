@@ -47,6 +47,7 @@ type RegistrationStep = {
   required: boolean;
   sort_order: number;
   completed_at: string | null;
+  completed_via?: string | null;
   due_at?: string | null;
   evidence_url: string | null;
   data: Record<string, unknown>;
@@ -94,6 +95,21 @@ type StepSession = {
 };
 
 // ── Description helpers ───────────────────────────────────────────────────────
+
+// Written status label for each step, so a symbol never stands alone.
+function stepStatusLabel(step: RegistrationStep): { text: string; cls: string } {
+  if (step.status === 'complete') {
+    return step.completed_via === 'simulation'
+      ? { text: 'Test simulated', cls: 'bg-amber-50 text-amber-700' }
+      : { text: 'Completed', cls: 'bg-emerald-50 text-emerald-700' };
+  }
+  if (step.status === 'locked') return { text: 'Waiting on a prior step', cls: 'bg-slate-100 text-slate-500' };
+  if (step.step_type === 'payment') return { text: 'Payment needed', cls: 'bg-blue-50 text-blue-700' };
+  if (step.step_type === 'attendance') return { text: 'Attendance pending', cls: 'bg-blue-50 text-blue-700' };
+  if (step.completion_mode === 'self_report') return { text: 'Action available', cls: 'bg-blue-50 text-blue-700' };
+  if (step.authority === 'state') return { text: 'Awaiting state confirmation', cls: 'bg-amber-50 text-amber-700' };
+  return { text: 'Awaiting confirmation', cls: 'bg-amber-50 text-amber-700' };
+}
 
 function getStepDescription(step: RegistrationStep): string | null {
   const c = step.config;
@@ -572,6 +588,7 @@ export default function RecruitMenuPage() {
   const [demoLoading, setDemoLoading] = useState(false);
   const [videoCollapsed, setVideoCollapsed] = useState(false);
   const [confirmSim, setConfirmSim] = useState(false);
+  const [confirmStep, setConfirmStep] = useState<string | null>(null);
   const paymentSuccess = searchParams.get('payment') === 'success';
 
   useEffect(() => {
@@ -646,6 +663,26 @@ export default function RecruitMenuPage() {
       return;
     }
 
+    const raw = data as RegistrationResponse;
+    const { steps } = await mergeAuthorityData(raw);
+    setRegistration({ cycle: raw.cycle, steps });
+    setBusyStep(null);
+    setConfirmStep(null);
+  };
+
+  const handleUncompleteStep = async (stepId: string) => {
+    if (!token) return;
+    setBusyStep(stepId);
+    setError(null);
+    const { data, error: rpcError } = await (supabase as any).rpc('uncomplete_step', {
+      p_token: token,
+      p_step_id: stepId,
+    });
+    if (rpcError || !data) {
+      setError('Unable to reopen this step. Please try again.');
+      setBusyStep(null);
+      return;
+    }
     const raw = data as RegistrationResponse;
     const { steps } = await mergeAuthorityData(raw);
     setRegistration({ cycle: raw.cycle, steps });
@@ -745,14 +782,44 @@ export default function RecruitMenuPage() {
         );
       }
 
+      const isUniform = /uniform/i.test(step.name);
+      const markLabel = isUniform ? 'Mark Uniform as Obtained' : 'Mark done';
+      if (confirmStep === step.step_id) {
+        return (
+          <div className="mt-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-sm text-slate-700">
+              {isUniform
+                ? 'Have you obtained the required DBOA uniform?'
+                : `Mark "${step.name}" as done?`}
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmStep(null)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busyStep === step.step_id}
+                onClick={() => handleCompleteStep(step.step_id)}
+                className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
+              >
+                {busyStep === step.step_id ? 'Saving…' : 'Yes, mark complete'}
+              </button>
+            </div>
+          </div>
+        );
+      }
       return (
         <button
           type="button"
-          onClick={() => handleCompleteStep(step.step_id)}
+          onClick={() => setConfirmStep(step.step_id)}
           disabled={busyStep === step.step_id}
           className={`mt-1 ${primaryBtn}`}
         >
-          {busyStep === step.step_id ? 'Marking done…' : 'Mark done'}
+          {markLabel}
         </button>
       );
     }
@@ -762,6 +829,19 @@ export default function RecruitMenuPage() {
         <p className="mt-1 text-sm text-slate-500">
           Your chapter staff will confirm this step when it&apos;s complete.
         </p>
+      );
+    }
+
+    if (step.status === 'complete' && step.completion_mode === 'self_report') {
+      return (
+        <button
+          type="button"
+          disabled={busyStep === step.step_id}
+          onClick={() => handleUncompleteStep(step.step_id)}
+          className="mt-1 bg-transparent p-0 text-xs font-semibold text-slate-400 underline-offset-2 transition hover:text-slate-600 hover:underline disabled:opacity-60"
+        >
+          {busyStep === step.step_id ? 'Reopening…' : 'Mark as not complete'}
+        </button>
       );
     }
 
@@ -1466,6 +1546,9 @@ export default function RecruitMenuPage() {
                   ) : null}
 
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stepStatusLabel(step).cls}`}>
+                      {stepStatusLabel(step).text}
+                    </span>
                     {step.required ? (
                       <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
                         Required
