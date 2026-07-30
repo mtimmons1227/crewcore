@@ -854,7 +854,7 @@ export default function RecruitMenuPage() {
     <header className="rounded-panel bg-slate-900 px-5 py-4 text-white shadow-soft sm:px-6">
       <div>
         <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
-          CrewCore Recruit
+          CrewCore Pathway
         </div>
         <div className="mt-0.5 text-xl font-semibold">Your path to officiating</div>
       </div>
@@ -1025,7 +1025,7 @@ export default function RecruitMenuPage() {
           ) : null}
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
-              CrewCore Recruit
+              CrewCore Pathway
             </div>
             <div className="text-xl font-semibold leading-snug">{pathHeadline}</div>
             {pathSub ? (

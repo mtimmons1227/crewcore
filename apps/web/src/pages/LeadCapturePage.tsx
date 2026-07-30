@@ -373,7 +373,7 @@ export default function LeadCapturePage() {
         ) : null}
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
-            CrewCore Recruit
+            CrewCore Pathway
           </div>
           <div className="text-xl font-semibold">{chapterName}</div>
           <div className="mt-1 text-sm text-slate-400">

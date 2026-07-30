@@ -300,7 +300,7 @@ function Shell({ groupLabel, children }: { groupLabel: string; children: React.R
     <div className="flex min-h-screen flex-col bg-white">
       <header className="bg-slate-900 px-5 py-4">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-          CrewCore
+          CrewCore Pathway
         </p>
         <p className="mt-0.5 text-lg font-bold text-white">
           Make the Call{groupLabel ? ` · ${groupLabel}` : '.'}
