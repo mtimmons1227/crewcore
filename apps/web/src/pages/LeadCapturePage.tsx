@@ -121,22 +121,22 @@ const DBOA_ORANGE_HOVER = '#C2410C';
 const BENEFITS: { title: string; desc: string }[] = [
   {
     title: 'Earn while you learn',
-    desc: 'Start working paid games as you complete your training.',
+    desc: 'Begin working paid games as you complete your development.',
   },
   {
-    title: 'Flexible game opportunities',
-    desc: 'Pick up games that fit around your schedule.',
+    title: 'Flexible opportunities',
+    desc: 'Choose assignments that work around your availability.',
   },
   {
-    title: 'Training and support provided',
-    desc: 'Mentors and resources guide you from day one.',
+    title: 'Training and support',
+    desc: 'Receive guidance, resources, and mentorship from day one.',
   },
 ];
 
 const NEXT_STEPS: string[] = [
-  'DBOA reviews your information',
-  'A recruiter contacts you by email or phone',
-  'You receive the next steps for registration and training',
+  'Your information is received by DBOA',
+  'You receive a welcome message by email or text',
+  'Your registration and training pathway is provided',
 ];
 
 const inputBase =
@@ -648,19 +648,15 @@ export default function LeadCapturePage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_minmax(0,560px)] lg:items-start">
         {/* Left — value proposition */}
         <div className="rounded-panel bg-slate-900 px-6 py-8 text-white shadow-soft sm:px-8">
-          {chapter?.logo_url ? (
-            <img
-              src={chapter.logo_url}
-              alt={`${chapterName} logo`}
-              className="mb-5 h-12 w-auto rounded-lg object-contain"
-            />
-          ) : null}
           <h1 className="text-2xl font-semibold leading-tight sm:text-3xl">
             Start Your Officiating Journey
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-slate-300 sm:text-base">
             Get trained, join a supportive officiating community, and begin working
-            basketball games in the Dallas area.
+            basketball games throughout the Dallas area.
+          </p>
+          <p className="mt-2 text-sm font-medium text-slate-200 sm:text-base">
+            No officiating experience is required. Training is provided.
           </p>
 
           <ul className="mt-7 space-y-4">
@@ -684,9 +680,10 @@ export default function LeadCapturePage() {
         {/* Right — the form */}
         <Card className="p-6 sm:p-7">
           <div className="mb-5">
-            <h2 className="text-xl font-semibold text-slate-900">Express your interest</h2>
+            <h2 className="text-xl font-semibold text-slate-900">Take the First Step</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Quick interest form — {chapterName} will follow up with next steps.
+              Complete this brief form to receive information about becoming a{' '}
+              {chapterName} basketball official.
             </p>
           </div>
 
@@ -817,7 +814,7 @@ export default function LeadCapturePage() {
                 ))}
               </ol>
               <p className="mt-3 text-xs text-slate-400">
-                Most recruits hear back within two business days.
+                Your next steps will be sent shortly after submission.
               </p>
             </div>
           </form>

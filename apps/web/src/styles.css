@@ -767,3 +767,16 @@ button:not(:disabled):hover {
   }
 }
 
+
+/* Neutralize the browser autofill highlight so autofilled fields match the form styling */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #0f172a;
+  -webkit-box-shadow: 0 0 0 1000px #f8fafc inset;
+  box-shadow: 0 0 0 1000px #f8fafc inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+input:autofill {
+  box-shadow: 0 0 0 1000px #f8fafc inset;
+}
