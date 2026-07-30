@@ -49,6 +49,7 @@ function App() {
   const isCommandCenter = location.pathname === '/command';
   const isBoard = location.pathname === '/board';
   const isLeadCapture = location.pathname === '/';
+  const isRecruit = location.pathname.startsWith('/r/');
   const isFullBleed =
     location.pathname.startsWith('/checkin/') ||
     location.pathname.startsWith('/kiosk/') ||
@@ -58,7 +59,7 @@ function App() {
 
   const shellClass = isFullBleed
     ? ''
-    : isCommandCenter || isBoard || isLeadCapture
+    : isCommandCenter || isBoard || isLeadCapture || isRecruit
       ? 'min-h-screen bg-slate-100'
       : 'page-shell';
   const frameClass = isFullBleed
@@ -67,7 +68,9 @@ function App() {
       ? 'mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8'
       : isLeadCapture
         ? 'mx-auto w-full max-w-5xl px-4 py-6 sm:px-6'
-        : 'frame';
+        : isRecruit
+          ? 'mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8'
+          : 'frame';
 
   return (
     <ErrorBoundary>

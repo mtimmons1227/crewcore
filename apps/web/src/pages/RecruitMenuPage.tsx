@@ -868,6 +868,12 @@ export default function RecruitMenuPage() {
     (s) => s.config?.first_game_required === true && s.status !== 'complete',
   ).length;
 
+  // First-game readiness vs full-season, for the sidebar progress panel.
+  const firstGameSteps = sortedSteps.filter((s) => s.config?.first_game_required === true);
+  const firstGameTotal = firstGameSteps.length;
+  const firstGameDone = firstGameSteps.filter((s) => s.status === 'complete').length;
+  const firstGamePct = firstGameTotal > 0 ? Math.round((firstGameDone / firstGameTotal) * 100) : 0;
+
   const lastFirstGameIdx = sortedSteps.reduce(
     (last, s, i) => (s.config?.first_game_required === true ? i : last),
     -1,
@@ -996,7 +1002,104 @@ export default function RecruitMenuPage() {
         </div>
       ) : null}
 
-      {/* ── 2. Fees strip (compact, collapsible) ── */}
+      {/* ── Next action (full width) ── */}
+      {placementConfirmed ? (
+        <Card className="mt-4 p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                Chapter fit
+              </p>
+              <h3 className="mt-0.5 text-base font-semibold text-slate-900">
+                {cycle.chapter} is your first correct call.
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                You’re matched with {cycle.chapter} — move forward with confidence. The
+                checklist below is built for your chapter.
+              </p>
+            </div>
+            <span className="text-2xl" aria-hidden="true">✅</span>
+          </div>
+        </Card>
+      ) : (
+        <Card className="mt-4 p-5 ring-2 ring-slate-900">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                Your first step
+              </p>
+              <h3 className="mt-0.5 text-base font-semibold text-slate-900">
+                First, find your chapter.
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Choose the chapter that fits where you live and work. Your path unlocks once you do.
+              </p>
+            </div>
+            <span className="text-2xl" aria-hidden="true">📍</span>
+          </div>
+          <Link
+            to={`/r/${token}/make-the-call`}
+            className="mt-4 block rounded-2xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-slate-700"
+          >
+            Find my best chapter
+          </Link>
+        </Card>
+      )}
+
+      {/* ── Two-column dashboard (main journey + sticky summary) ── */}
+      <div className="mt-4 lg:grid lg:grid-cols-3 lg:gap-6 lg:items-start">
+        <aside className="lg:col-span-1 lg:order-2 lg:sticky lg:top-6">
+          {/* ── Progress summary ── */}
+          <Card className="p-5">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+              {firstName}&apos;s progress
+            </p>
+            <h2 className="mt-1 text-base font-semibold leading-snug text-slate-900">{headline}</h2>
+            {clearancePill || isStalled ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {clearancePill ? (
+                  <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${clearancePill.cls}`}>
+                    {clearancePill.label}
+                  </span>
+                ) : null}
+                {isStalled ? (
+                  <span className="inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
+                    Stalled
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+
+            {firstGameTotal > 0 ? (
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                  <span>First-game readiness</span>
+                  <span className="tabular-nums">{firstGameDone} of {firstGameTotal}</span>
+                </div>
+                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-emerald-500" style={{ width: `${firstGamePct}%` }} />
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-3">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                <span>Full-season requirements</span>
+                <span className="tabular-nums">{completedCount} of {sortedSteps.length}</span>
+              </div>
+              <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                <div className="h-full rounded-full bg-slate-900" style={{ width: `${progressPct}%` }} />
+              </div>
+            </div>
+
+            <div className="mt-3 border-t border-slate-100 pt-3 text-sm text-slate-500">
+              <span className="font-semibold text-slate-900">{completedCount}</span> done ·{' '}
+              <span className="font-semibold text-slate-900">{sortedSteps.length - completedCount}</span> left ·{' '}
+              <span className="font-semibold text-slate-900">{progressPct}%</span>
+            </div>
+          </Card>
+
+          {/* ── 2. Fees strip (compact, collapsible) ── */}
       {feeRows.length > 0 ? (
         <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <button
@@ -1120,88 +1223,34 @@ export default function RecruitMenuPage() {
         </div>
       ) : null}
 
-      {/* ── 3. Progress headline ── */}
-      <Card className="mt-4 p-5">
-        <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-          {firstName}&apos;s progress
-        </p>
-        <h2 className="mt-1 text-lg font-semibold leading-snug text-slate-900">{headline}</h2>
-        {clearancePill || isStalled ? (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {clearancePill ? (
-              <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${clearancePill.cls}`}>
-                {clearancePill.label}
-              </span>
-            ) : null}
-            {isStalled ? (
-              <span className="inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
-                Stalled
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-        <div className="mt-3 flex items-center gap-5 border-t border-slate-100 pt-3">
-          <div>
-            <span className="text-xl font-bold text-slate-900">{completedCount}</span>
-            <span className="ml-1 text-sm text-slate-400">done</span>
-          </div>
-          <div className="text-slate-200 select-none">·</div>
-          <div>
-            <span className="text-xl font-bold text-slate-900">{sortedSteps.length - completedCount}</span>
-            <span className="ml-1 text-sm text-slate-400">left</span>
-          </div>
-          <div className="text-slate-200 select-none">·</div>
-          <div>
-            <span className="text-xl font-bold text-slate-900">{progressPct}%</span>
-          </div>
-        </div>
-      </Card>
-
-      {/* ── Make the Call entry ── */}
-      {placementConfirmed ? (
-        <Card className="mt-4 p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                Chapter fit
-              </p>
-              <h3 className="mt-0.5 text-base font-semibold text-slate-900">
-                {cycle.chapter} is your first correct call.
-              </h3>
-              <p className="mt-1 text-sm text-slate-500">
-                You’re matched with {cycle.chapter} — move forward with confidence. The
-                checklist below is built for your chapter.
-              </p>
+          {/* ── Need help? ── */}
+          <Card className="mt-4 p-5">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Need help?</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Questions about registration, fees, or your checklist? A DBOA coordinator can help.
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              <a
+                href="https://thedboa.com"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Contact DBOA
+              </a>
+              <Link
+                to={`/r/${token}/make-the-call`}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Get help with my checklist
+              </Link>
             </div>
-            <span className="text-2xl" aria-hidden="true">✅</span>
-          </div>
-        </Card>
-      ) : (
-        <Card className="mt-4 p-5 ring-2 ring-slate-900">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                Your first step
-              </p>
-              <h3 className="mt-0.5 text-base font-semibold text-slate-900">
-                First, find your chapter.
-              </h3>
-              <p className="mt-1 text-sm text-slate-500">
-                Choose the chapter that fits where you live and work. Your path unlocks once you do.
-              </p>
-            </div>
-            <span className="text-2xl" aria-hidden="true">📍</span>
-          </div>
-          <Link
-            to={`/r/${token}/make-the-call`}
-            className="mt-4 block rounded-2xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-slate-700"
-          >
-            Find my best chapter
-          </Link>
-        </Card>
-      )}
+          </Card>
+        </aside>
 
-      {/* ── 4. Vertical meter ── */}
+        {/* ── Main journey column ── */}
+        <div className="mt-4 lg:col-span-2 lg:order-1 lg:mt-0">
+          {/* ── 4. Vertical meter ── */}
       {sortedSteps.length > 0 ? (
         <Card className="mt-4 p-5 sm:p-6">
           {renderItems.map((item, ri) => {
@@ -1428,6 +1477,8 @@ export default function RecruitMenuPage() {
           </p>
         </Card>
       )}
+        </div>
+      </div>
 
       {/* Page-level error (post-load) */}
       {error ? (
