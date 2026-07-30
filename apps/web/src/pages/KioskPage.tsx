@@ -20,6 +20,9 @@ export default function KioskPage() {
   const [closing, setClosing] = useState(false);
   const [closedResult, setClosedResult] = useState<CloseResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<'in' | 'out'>('in');
+  const [counts, setCounts] = useState<{ checked_in_total: number; checked_out: number } | null>(null);
+  const [confirmClose, setConfirmClose] = useState(false);
 
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -48,10 +51,23 @@ export default function KioskPage() {
     }
   };
 
+  const fetchCounts = async () => {
+    if (!sessionId) return;
+    const { data } = await (supabase as any).rpc('get_session_attendance_counts', {
+      p_session_id: sessionId,
+      p_passcode: PASSCODE,
+    });
+    if (data) setCounts(data as { checked_in_total: number; checked_out: number });
+  };
+
   useEffect(() => {
     if (!authed || !sessionId) return;
     fetchCode();
-    pollTimer.current = setInterval(fetchCode, 15000);
+    fetchCounts();
+    pollTimer.current = setInterval(() => {
+      fetchCode();
+      fetchCounts();
+    }, 15000);
     return () => {
       if (pollTimer.current) clearInterval(pollTimer.current);
     };
@@ -80,12 +96,6 @@ export default function KioskPage() {
 
   const handleCloseSession = async () => {
     if (!sessionId) return;
-    if (
-      !window.confirm(
-        'Close this session? Officials who are still checked in will be flagged as left early.',
-      )
-    )
-      return;
     setClosing(true);
     const { data, error: rpcErr } = await (supabase as any).rpc('close_session', {
       p_session_id: sessionId,
@@ -148,35 +158,92 @@ export default function KioskPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-900 px-6 py-10 text-center">
-      <p className="mb-6 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+      <p className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
         CrewCore · Attendance Kiosk
       </p>
+
+      {/* Presenter-controlled mode */}
+      <div
+        className="mb-6 rounded-full px-4 py-1.5 text-sm font-bold tracking-wide"
+        style={{
+          backgroundColor: mode === 'in' ? 'rgba(16,185,129,0.16)' : 'rgba(96,165,250,0.16)',
+          color: mode === 'in' ? '#34d399' : '#60a5fa',
+        }}
+      >
+        {mode === 'in' ? 'CHECK-IN OPEN' : 'CHECK-OUT OPEN'}
+      </div>
 
       {error ? (
         <div className="rounded-2xl bg-rose-900/40 px-5 py-4 text-sm text-rose-300">{error}</div>
       ) : qrDataUrl ? (
         <>
           <div className="rounded-3xl bg-white p-4 shadow-2xl">
-            <img src={qrDataUrl} alt="Scan to check in" width={288} height={288} className="block" />
+            <img src={qrDataUrl} alt="Attendance QR code" width={288} height={288} className="block" />
           </div>
-          <p className="mt-5 text-lg font-semibold text-white">Scan to check in</p>
+          <p className="mt-5 text-lg font-semibold text-white">
+            {mode === 'in' ? 'Scan to check in' : 'Scan to check out'}
+          </p>
           <p className="mt-1 text-sm text-slate-400">
             Code refreshes in{' '}
             <span className="font-semibold tabular-nums text-slate-200">{countdown}s</span>
           </p>
+          {counts ? (
+            <p className="mt-3 text-sm font-semibold text-white">
+              {mode === 'in'
+                ? `${counts.checked_in_total} checked in`
+                : `${counts.checked_out} of ${counts.checked_in_total} checked out · ${Math.max(
+                    0,
+                    counts.checked_in_total - counts.checked_out,
+                  )} still checked in`}
+            </p>
+          ) : null}
         </>
       ) : (
         <p className="text-slate-400">Loading QR…</p>
       )}
 
+      {/* Mode toggle */}
       <button
         type="button"
-        onClick={handleCloseSession}
-        disabled={closing}
-        className="mt-12 rounded-2xl border border-rose-700/60 bg-rose-900/30 px-6 py-3 text-sm font-semibold text-rose-300 transition hover:bg-rose-900/60 disabled:opacity-50"
+        onClick={() => setMode((m) => (m === 'in' ? 'out' : 'in'))}
+        className="mt-8 rounded-2xl bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/20"
       >
-        {closing ? 'Closing…' : 'Close session'}
+        {mode === 'in' ? 'Switch to Check-Out →' : '← Return to Check-In'}
       </button>
+
+      {/* Close attendance (with inline confirm) */}
+      {confirmClose ? (
+        <div className="mt-6 w-full max-w-sm rounded-2xl border border-rose-700/60 bg-rose-950/40 px-5 py-4">
+          <p className="text-sm text-rose-200">
+            Close attendance for this session? Attendees will no longer be able to check in or check out.
+          </p>
+          <div className="mt-3 flex justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setConfirmClose(false)}
+              className="rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/20"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={closing}
+              onClick={handleCloseSession}
+              className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-rose-500 disabled:opacity-50"
+            >
+              {closing ? 'Closing…' : 'Close Attendance'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirmClose(true)}
+          className="mt-4 rounded-2xl border border-rose-700/60 bg-rose-900/30 px-6 py-3 text-sm font-semibold text-rose-300 transition hover:bg-rose-900/60"
+        >
+          Close Attendance
+        </button>
+      )}
     </div>
   );
 }

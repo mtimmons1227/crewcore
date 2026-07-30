@@ -566,7 +566,7 @@ export default function SessionAdminPage() {
                         <button
                           type="button"
                           onClick={cancelEdit}
-                          className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
                         >
                           Cancel
                         </button>
@@ -593,7 +593,7 @@ export default function SessionAdminPage() {
                           <button
                             type="button"
                             onClick={() => startEdit(s)}
-                            className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
                           >
                             Edit
                           </button>
@@ -611,7 +611,7 @@ export default function SessionAdminPage() {
                               <button
                                 type="button"
                                 onClick={() => setDeletingId(null)}
-                                className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
                               >
                                 Cancel
                               </button>
@@ -624,7 +624,7 @@ export default function SessionAdminPage() {
                                 setEditingId(null);
                                 setLastDeleteNote(null);
                               }}
-                              className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
+                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
                             >
                               Delete
                             </button>
