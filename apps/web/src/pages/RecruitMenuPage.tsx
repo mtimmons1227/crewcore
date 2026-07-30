@@ -926,7 +926,7 @@ export default function RecruitMenuPage() {
               <div className="mt-0.5 text-sm text-slate-300">{pathSub}</div>
             ) : null}
             <div className="mt-1 text-sm text-slate-400">
-              {fullChapterName} · {cycle.season} season
+              {fullChapterName} · {cycle.season}
             </div>
           </div>
         </div>
@@ -979,8 +979,8 @@ export default function RecruitMenuPage() {
         This page is your saved progress — bookmark it, or use the link we emailed you to get back here.
       </p>
 
-      {/* ── Demo mode banner ── */}
-      {hasUnfinishedStateSteps ? (
+      {/* ── Demo mode banner (staff test tool — only when ?demo is in the URL) ── */}
+      {hasUnfinishedStateSteps && new URLSearchParams(window.location.search).has('demo') ? (
         <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-sm text-amber-800">
             <span className="font-semibold">Demo mode:</span> Simulate THSBOA state steps (registration, background check, state test) completing.
@@ -1055,10 +1055,10 @@ export default function RecruitMenuPage() {
                   pill === 'paid'
                     ? { bg: '#dcfce7', color: '#16a34a', label: 'Paid' }
                     : pill === 'unpaid'
-                      ? { bg: '#ffe4e6', color: '#e11d48', label: 'Unpaid' }
+                      ? { bg: '#ffe4e6', color: '#e11d48', label: 'Not paid' }
                       : pill === 'awaiting'
-                        ? { bg: '#fef3c7', color: '#b45309', label: 'Awaiting confirm' }
-                        : { bg: '#f1f5f9', color: '#64748b', label: 'Not started' };
+                        ? { bg: '#fef3c7', color: '#b45309', label: 'Verifying' }
+                        : { bg: '#f1f5f9', color: '#64748b', label: 'Upcoming' };
 
                 return (
                   <div
@@ -1184,7 +1184,7 @@ export default function RecruitMenuPage() {
                 Your first step
               </p>
               <h3 className="mt-0.5 text-base font-semibold text-slate-900">
-                First, make the call.
+                First, find your chapter.
               </h3>
               <p className="mt-1 text-sm text-slate-500">
                 Choose the chapter that fits where you live and work. Your path unlocks once you do.
@@ -1196,7 +1196,7 @@ export default function RecruitMenuPage() {
             to={`/r/${token}/make-the-call`}
             className="mt-4 block rounded-2xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-slate-700"
           >
-            Make the Call — let’s go
+            Find my best chapter
           </Link>
         </Card>
       )}
@@ -1293,7 +1293,7 @@ export default function RecruitMenuPage() {
                   <div className="flex items-start justify-between gap-2">
                     <h3
                       className={`text-sm font-semibold leading-snug ${
-                        !placementConfirmed || step.status === 'locked' ? 'text-slate-400' : 'text-slate-900'
+                        !placementConfirmed || step.status === 'locked' ? 'text-slate-500' : 'text-slate-900'
                       }`}
                     >
                       {step.name}
@@ -1308,7 +1308,7 @@ export default function RecruitMenuPage() {
                   {desc ? (
                     <p
                       className={`mt-0.5 text-sm ${
-                        step.status === 'locked' ? 'text-slate-400' : 'text-slate-500'
+                        step.status === 'locked' ? 'text-slate-500' : 'text-slate-500'
                       }`}
                     >
                       {desc}
