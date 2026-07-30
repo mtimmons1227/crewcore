@@ -1319,9 +1319,9 @@ export default function RecruitMenuPage() {
           {/* ── Status legend ── */}
           <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-100 pb-3 text-[11px] font-medium text-slate-500">
             <span className="flex items-center gap-1"><span className="font-bold text-emerald-600">✓</span> Completed</span>
-            <span className="flex items-center gap-1"><span className="font-bold text-blue-500">◉</span> Action available</span>
-            <span className="flex items-center gap-1"><span className="font-bold text-slate-400">③</span> Upcoming / locked</span>
-            <span className="flex items-center gap-1"><span aria-hidden="true">🏁</span> First-game milestone</span>
+            <span className="flex items-center gap-1"><span className="font-bold text-blue-500">◉</span> Action available now</span>
+            <span className="flex items-center gap-1"><span className="font-bold text-slate-400">③</span> Upcoming or waiting</span>
+            <span className="flex items-center gap-1"><span aria-hidden="true">🏁</span> First-game eligibility milestone</span>
           </div>
           {renderItems.map((item, ri) => {
             const isLastRi = ri === renderItems.length - 1;
