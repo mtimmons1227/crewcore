@@ -65,6 +65,7 @@ type RegistrationResponse = {
     season: string;
     sport: string;
     placement_confirmed: boolean;
+    welcome_video_watched_at: string | null;
     person: { email: string | null; full_name: string | null };
   };
   steps: RegistrationStep[];
@@ -569,6 +570,7 @@ export default function RecruitMenuPage() {
   const [stepSessions, setStepSessions] = useState<Record<string, StepSession[]>>({});
   const [stepSessionsLoading, setStepSessionsLoading] = useState<Record<string, boolean>>({});
   const [demoLoading, setDemoLoading] = useState(false);
+  const [videoCollapsed, setVideoCollapsed] = useState(false);
   const paymentSuccess = searchParams.get('payment') === 'success';
 
   useEffect(() => {
@@ -604,6 +606,18 @@ export default function RecruitMenuPage() {
 
     fetchRegistration();
   }, [token]);
+
+  // Welcome video: collapse by default once the recruit has seen it (state stored
+  // per recruit in the DB, so it behaves the same on any device). On the first
+  // view, record it so return visits — anywhere — open collapsed.
+  useEffect(() => {
+    const watchedAt = registration?.cycle.welcome_video_watched_at ?? null;
+    if (watchedAt) {
+      setVideoCollapsed(true);
+    } else if (registration && token) {
+      (supabase as any).rpc('set_welcome_video_watched', { p_token: token });
+    }
+  }, [registration, token]);
 
   const handleCompleteStep = async (stepId: string, score?: number) => {
     if (!token) return;
@@ -874,6 +888,11 @@ export default function RecruitMenuPage() {
   const firstGameDone = firstGameSteps.filter((s) => s.status === 'complete').length;
   const firstGamePct = firstGameTotal > 0 ? Math.round((firstGameDone / firstGameTotal) * 100) : 0;
 
+  // Test/staging only: gates simulation controls and shows a test-environment banner.
+  const testMode =
+    new URLSearchParams(window.location.search).has('demo') ||
+    /localhost|127\.0\.0\.1/.test(window.location.hostname);
+
   const lastFirstGameIdx = sortedSteps.reduce(
     (last, s, i) => (s.config?.first_game_required === true ? i : last),
     -1,
@@ -938,32 +957,74 @@ export default function RecruitMenuPage() {
         </div>
       </header>
 
-      {/* ── Welcome video (plays on arrival) ── */}
-      <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="px-4 pt-4">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-            Welcome — a message for you
-          </div>
-          <div className="mt-0.5 text-base font-semibold text-slate-900">
-            A welcome from DBOA President Harold C. Young, II
-          </div>
+      {/* ── Test-environment banner ── */}
+      {testMode ? (
+        <div className="mt-4 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-center text-xs font-semibold text-rose-700">
+          TEST ENVIRONMENT — actions on this page do not represent real credentials or payments.
         </div>
-        <div className="px-4 pb-4 pt-3">
-          <div
-            className="relative overflow-hidden rounded-xl bg-slate-900"
-            style={{ aspectRatio: '16 / 9' }}
+      ) : null}
+
+      {/* ── Welcome video (collapsible; watched state persists per recruit across devices) ── */}
+      {videoCollapsed ? (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Welcome — a message for you
+            </div>
+            <div className="text-sm font-semibold text-slate-900">
+              A welcome from DBOA President Harold C. Young, II
+              {cycle.welcome_video_watched_at ? (
+                <span className="ml-1 font-normal text-slate-400">
+                  · watched {new Date(cycle.welcome_video_watched_at).toLocaleDateString()}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setVideoCollapsed(false)}
+            className="shrink-0 rounded-xl bg-transparent px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900"
           >
-            <iframe
-              src="https://share.synthesia.io/embeds/videos/ae42567e-9aa5-4bf1-bc30-4e192c3ca77e"
-              title="Welcome to DBOA"
-              allow="autoplay; fullscreen; encrypted-media"
-              allowFullScreen
-              loading="lazy"
-              className="absolute inset-0 h-full w-full border-0"
-            />
+            Watch again ▾
+          </button>
+        </div>
+      ) : (
+        <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-start justify-between gap-3 px-4 pt-4">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Welcome — a message for you
+              </div>
+              <div className="mt-0.5 text-base font-semibold text-slate-900">
+                A welcome from DBOA President Harold C. Young, II
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setVideoCollapsed(true)}
+              aria-label="Collapse welcome video"
+              className="shrink-0 rounded-xl bg-transparent px-2 py-1 text-xs font-semibold text-slate-500 hover:text-slate-800"
+            >
+              Collapse ▴
+            </button>
+          </div>
+          <div className="px-4 pb-4 pt-3">
+            <div
+              className="relative overflow-hidden rounded-xl bg-slate-900"
+              style={{ aspectRatio: '16 / 9' }}
+            >
+              <iframe
+                src="https://share.synthesia.io/embeds/videos/ae42567e-9aa5-4bf1-bc30-4e192c3ca77e"
+                title="Welcome to DBOA"
+                allow="autoplay; fullscreen; encrypted-media"
+                allowFullScreen
+                loading="lazy"
+                className="absolute inset-0 h-full w-full border-0"
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ── Payment success banner ── */}
       {paymentSuccess ? (
@@ -985,8 +1046,8 @@ export default function RecruitMenuPage() {
         This page is your saved progress — bookmark it, or use the link we emailed you to get back here.
       </p>
 
-      {/* ── Demo mode banner (staff test tool — only when ?demo is in the URL) ── */}
-      {hasUnfinishedStateSteps && new URLSearchParams(window.location.search).has('demo') ? (
+      {/* ── Demo mode banner (staff test tool — test mode only) ── */}
+      {hasUnfinishedStateSteps && testMode ? (
         <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-sm text-amber-800">
             <span className="font-semibold">Demo mode:</span> Simulate THSBOA state steps (registration, background check, state test) completing.
@@ -1227,7 +1288,7 @@ export default function RecruitMenuPage() {
           <Card className="mt-4 p-5">
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Need help?</p>
             <p className="mt-1 text-sm text-slate-500">
-              Questions about registration, fees, or your checklist? A DBOA coordinator can help.
+              Questions about registration, fees, or your checklist?
             </p>
             <div className="mt-3 flex flex-col gap-2">
               <a
@@ -1236,14 +1297,16 @@ export default function RecruitMenuPage() {
                 rel="noreferrer"
                 className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
-                Contact DBOA
+                Visit the DBOA Website
               </a>
-              <Link
-                to={`/r/${token}/make-the-call`}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Get help with my checklist
-              </Link>
+              {!placementConfirmed ? (
+                <Link
+                  to={`/r/${token}/make-the-call`}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Help me choose my chapter
+                </Link>
+              ) : null}
             </div>
           </Card>
         </aside>
@@ -1253,6 +1316,13 @@ export default function RecruitMenuPage() {
           {/* ── 4. Vertical meter ── */}
       {sortedSteps.length > 0 ? (
         <Card className="mt-4 p-5 sm:p-6">
+          {/* ── Status legend ── */}
+          <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-100 pb-3 text-[11px] font-medium text-slate-500">
+            <span className="flex items-center gap-1"><span className="font-bold text-emerald-600">✓</span> Completed</span>
+            <span className="flex items-center gap-1"><span className="font-bold text-blue-500">◉</span> Action available</span>
+            <span className="flex items-center gap-1"><span className="font-bold text-slate-400">③</span> Upcoming / locked</span>
+            <span className="flex items-center gap-1"><span aria-hidden="true">🏁</span> First-game milestone</span>
+          </div>
           {renderItems.map((item, ri) => {
             const isLastRi = ri === renderItems.length - 1;
 
