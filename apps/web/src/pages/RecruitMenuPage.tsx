@@ -1158,30 +1158,48 @@ export default function RecruitMenuPage() {
       </Card>
 
       {/* ── Make the Call entry ── */}
-      <Card className={`mt-4 p-5 ${!placementConfirmed ? 'ring-2 ring-slate-900' : ''}`}>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-              {placementConfirmed ? 'Chapter fit' : 'Your first step'}
-            </p>
-            <h3 className="mt-0.5 text-base font-semibold text-slate-900">
-              {placementConfirmed ? 'Make the Call.' : 'First, make the call.'}
-            </h3>
-            <p className="mt-1 text-sm text-slate-500">
-              {placementConfirmed
-                ? 'Find your best-fit chapter based on where you live, work, and are available.'
-                : 'Choose the chapter that fits where you live and work. Your path unlocks once you do.'}
-            </p>
+      {placementConfirmed ? (
+        <Card className="mt-4 p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                Chapter fit
+              </p>
+              <h3 className="mt-0.5 text-base font-semibold text-slate-900">
+                {cycle.chapter} is your first correct call.
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                You’re matched with {cycle.chapter} — move forward with confidence. The
+                checklist below is built for your chapter.
+              </p>
+            </div>
+            <span className="text-2xl" aria-hidden="true">✅</span>
           </div>
-          <span className="text-2xl" aria-hidden="true">📍</span>
-        </div>
-        <Link
-          to={`/r/${token}/make-the-call`}
-          className="mt-4 block rounded-2xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-slate-700"
-        >
-          {placementConfirmed ? "Find my best-fit chapter" : "Make the Call — let’s go"}
-        </Link>
-      </Card>
+        </Card>
+      ) : (
+        <Card className="mt-4 p-5 ring-2 ring-slate-900">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                Your first step
+              </p>
+              <h3 className="mt-0.5 text-base font-semibold text-slate-900">
+                First, make the call.
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Choose the chapter that fits where you live and work. Your path unlocks once you do.
+              </p>
+            </div>
+            <span className="text-2xl" aria-hidden="true">📍</span>
+          </div>
+          <Link
+            to={`/r/${token}/make-the-call`}
+            className="mt-4 block rounded-2xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-slate-700"
+          >
+            Make the Call — let’s go
+          </Link>
+        </Card>
+      )}
 
       {/* ── 4. Vertical meter ── */}
       {sortedSteps.length > 0 ? (

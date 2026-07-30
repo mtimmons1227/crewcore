@@ -124,6 +124,14 @@ function MemberTypePill({ type }: { type: string }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+type ReviewRequest = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  reason: string | null;
+  created_at: string;
+};
+
 export default function BoardDashboardPage() {
   const [unlocked, setUnlocked] = useState(
     () => sessionStorage.getItem(STORAGE_KEY) === '1',
@@ -134,6 +142,7 @@ export default function BoardDashboardPage() {
   const [roster, setRoster] = useState<BoardRoster | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [reviewRequests, setReviewRequests] = useState<ReviewRequest[]>([]);
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
@@ -157,6 +166,13 @@ export default function BoardDashboardPage() {
           setRoster(data as BoardRoster);
         }
         setLoading(false);
+      });
+
+    (supabase as any)
+      .rpc('get_open_review_requests', { p_chapter_slug: 'DBOA' })
+      .then(({ data, error }: { data: unknown; error: { message: string } | null }) => {
+        if (cancelled || error) return;
+        setReviewRequests((data as ReviewRequest[]) ?? []);
       });
 
     return () => {
@@ -341,6 +357,36 @@ export default function BoardDashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* ── Open review requests ── */}
+      {reviewRequests.length > 0 ? (
+        <Card className="mt-4 p-5 sm:p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Open review requests
+            </h2>
+            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">
+              {reviewRequests.length}
+            </span>
+          </div>
+          <ul className="mt-3 divide-y divide-slate-100">
+            {reviewRequests.map((r) => (
+              <li key={r.id} className="py-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-sm font-semibold text-slate-900">
+                    {r.full_name ?? 'Unknown recruit'}
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {new Date(r.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                {r.email ? <div className="text-xs text-slate-500">{r.email}</div> : null}
+                {r.reason ? <p className="mt-1 text-sm text-slate-600">{r.reason}</p> : null}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
 
       {/* ── Roster panel ── */}
       <Card className="mt-4 p-5 sm:p-6">

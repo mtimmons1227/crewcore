@@ -709,7 +709,7 @@ export default function MakeTheCallPage() {
             <button
               type="button"
               onClick={() => navigate(`/r/${token}`)}
-              className="mt-1 w-full px-4 py-2 text-sm text-slate-400 transition hover:text-slate-600"
+              className="mt-1 w-full bg-transparent px-4 py-2 text-sm text-slate-500 transition hover:text-slate-800"
             >
               Back to my checklist
             </button>
@@ -891,7 +891,7 @@ export default function MakeTheCallPage() {
         <button
           type="button"
           onClick={() => setResultView('main')}
-          className="mb-4 flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-700"
+          className="mb-4 flex items-center gap-1.5 bg-transparent p-0 text-sm font-semibold text-slate-600 hover:text-slate-900"
         >
           ← Back to The Call
         </button>
