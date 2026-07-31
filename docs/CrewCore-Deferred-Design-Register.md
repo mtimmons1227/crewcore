@@ -71,3 +71,9 @@ over chapter documents.
 
 **Claims integrity:** these are DESIGNED, not BUILT. Say "designed to use AI
 for…", never "uses AI", until shipped.
+
+### 6. Welcome video — revisit dynamic/personalized render before go-live
+- Decision: whether the President welcome video stays hardcoded per path or becomes a dynamic, personalized render (recruit name, upcoming season, chapter/sport variables) at scale.
+- Reason: current demo build hardcodes one Synthesia embed per path (`WELCOME_VIDEOS` map in `RecruitMenuPage.tsx`, keyed by `member_type` new/returning/transfer) because Synthesia's free plan has no API. The dynamic path was already built (`welcome-video` edge function + `welcome_video` cache table, one render per chapter/sport/season/path) but is dormant since it requires a paid Synthesia Creator/Enterprise plan.
+- Status: **Deferred until before go-live.** Demo uses hardcoded per-path videos; all three currently point at the New-official render until Returning/Transfer versions are recorded.
+- Implication: to go dynamic, (1) move to a paid Synthesia plan, (2) set `SYNTHESIA_API_KEY` + `SYNTHESIA_TEMPLATE_NEW/_RETURNING/_TRANSFER` as Supabase edge-function secrets, (3) re-wire `RecruitMenuPage` to invoke `welcome-video` again (the fallback already keeps a static video if the API is unconfigured). Weigh the per-render cost and personalization value (name + season) against just keeping the hardcoded per-path videos.
