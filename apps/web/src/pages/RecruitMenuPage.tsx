@@ -96,6 +96,10 @@ type StepSession = {
 
 // ── Description helpers ───────────────────────────────────────────────────────
 
+// Generic President welcome video, shown until a personalized render is ready.
+const GENERIC_WELCOME_VIDEO =
+  'https://share.synthesia.io/embeds/videos/ae42567e-9aa5-4bf1-bc30-4e192c3ca77e';
+
 // Written status label for each step, so a symbol never stands alone.
 function stepStatusLabel(step: RegistrationStep): { text: string; cls: string } {
   if (step.status === 'complete') {
@@ -589,6 +593,7 @@ export default function RecruitMenuPage() {
   const [videoCollapsed, setVideoCollapsed] = useState(false);
   const [confirmSim, setConfirmSim] = useState(false);
   const [confirmStep, setConfirmStep] = useState<string | null>(null);
+  const [welcomeVideoSrc, setWelcomeVideoSrc] = useState(GENERIC_WELCOME_VIDEO);
   const paymentSuccess = searchParams.get('payment') === 'success';
 
   useEffect(() => {
@@ -636,6 +641,29 @@ export default function RecruitMenuPage() {
       (supabase as any).rpc('set_welcome_video_watched', { p_token: token });
     }
   }, [registration, token]);
+
+  // Personalized welcome video: one render per chapter/sport/season/path, reused for
+  // everyone on that path. Shows the generic video until the personalized one is ready,
+  // then uses it on the next load — no mid-play swap.
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await (supabase as any).functions.invoke('welcome-video', {
+          body: { token },
+        });
+        if (!cancelled && data?.status === 'complete' && data.synthesia_id) {
+          setWelcomeVideoSrc(`https://share.synthesia.io/embeds/videos/${data.synthesia_id}`);
+        }
+      } catch {
+        /* keep the generic video */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   const handleCompleteStep = async (stepId: string, score?: number) => {
     if (!token) return;
@@ -1095,7 +1123,7 @@ export default function RecruitMenuPage() {
               style={{ aspectRatio: '16 / 9' }}
             >
               <iframe
-                src="https://share.synthesia.io/embeds/videos/ae42567e-9aa5-4bf1-bc30-4e192c3ca77e"
+                src={welcomeVideoSrc}
                 title="Welcome to DBOA"
                 allow="autoplay; fullscreen; encrypted-media"
                 allowFullScreen
