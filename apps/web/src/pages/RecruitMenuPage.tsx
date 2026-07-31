@@ -96,9 +96,20 @@ type StepSession = {
 
 // ── Description helpers ───────────────────────────────────────────────────────
 
-// Generic President welcome video, shown until a personalized render is ready.
-const GENERIC_WELCOME_VIDEO =
-  'https://share.synthesia.io/embeds/videos/ae42567e-9aa5-4bf1-bc30-4e192c3ca77e';
+// Hardcoded President welcome videos — one Synthesia render per path.
+// Rendered manually in Synthesia Studio (free plan has no API), so nothing here
+// depends on a paid key. To change a path's video, paste a new share/embed URL
+// below — no other code change is needed. All three point at the New-official
+// render until the Returning and Transfer versions are recorded.
+const WELCOME_VIDEOS: Record<string, string> = {
+  new: 'https://share.synthesia.io/embeds/videos/ae42567e-9aa5-4bf1-bc30-4e192c3ca77e',
+  returning: 'https://share.synthesia.io/embeds/videos/ae42567e-9aa5-4bf1-bc30-4e192c3ca77e',
+  transfer: 'https://share.synthesia.io/embeds/videos/ae42567e-9aa5-4bf1-bc30-4e192c3ca77e',
+};
+const DEFAULT_WELCOME_VIDEO = WELCOME_VIDEOS.new;
+function welcomeVideoFor(memberType: string | null | undefined): string {
+  return WELCOME_VIDEOS[memberType ?? 'new'] ?? DEFAULT_WELCOME_VIDEO;
+}
 
 // Written status label for each step, so a symbol never stands alone.
 function stepStatusLabel(step: RegistrationStep): { text: string; cls: string } {
@@ -593,7 +604,7 @@ export default function RecruitMenuPage() {
   const [videoCollapsed, setVideoCollapsed] = useState(false);
   const [confirmSim, setConfirmSim] = useState(false);
   const [confirmStep, setConfirmStep] = useState<string | null>(null);
-  const [welcomeVideoSrc, setWelcomeVideoSrc] = useState(GENERIC_WELCOME_VIDEO);
+  const [welcomeVideoSrc, setWelcomeVideoSrc] = useState(DEFAULT_WELCOME_VIDEO);
   const paymentSuccess = searchParams.get('payment') === 'success';
 
   useEffect(() => {
@@ -642,28 +653,12 @@ export default function RecruitMenuPage() {
     }
   }, [registration, token]);
 
-  // Personalized welcome video: one render per chapter/sport/season/path, reused for
-  // everyone on that path. Shows the generic video until the personalized one is ready,
-  // then uses it on the next load — no mid-play swap.
+  // Pick the President welcome video for this recruit's path. Hardcoded per path
+  // (see WELCOME_VIDEOS above) for the demo — no API call, so nothing breaks on the
+  // Synthesia free plan. Swap a URL in that map to change any path's video.
   useEffect(() => {
-    if (!token) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await (supabase as any).functions.invoke('welcome-video', {
-          body: { token },
-        });
-        if (!cancelled && data?.status === 'complete' && data.synthesia_id) {
-          setWelcomeVideoSrc(`https://share.synthesia.io/embeds/videos/${data.synthesia_id}`);
-        }
-      } catch {
-        /* keep the generic video */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
+    setWelcomeVideoSrc(welcomeVideoFor(registration?.cycle.member_type ?? null));
+  }, [registration]);
 
   const handleCompleteStep = async (stepId: string, score?: number) => {
     if (!token) return;
