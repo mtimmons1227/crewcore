@@ -993,9 +993,19 @@ export default function RecruitMenuPage() {
   const firstGamePct = firstGameTotal > 0 ? Math.round((firstGameDone / firstGameTotal) * 100) : 0;
 
   // Test/staging only: gates simulation controls and shows a test-environment banner.
-  const testMode =
-    new URLSearchParams(window.location.search).has('demo') ||
-    /localhost|127\.0\.0\.1/.test(window.location.hostname);
+  // Once ?demo has been seen, remember it for this browser tab so the test controls
+  // survive redirects that drop the query string (e.g. the Stripe ?payment=success
+  // return). Cleared when the tab closes.
+  const testMode = (() => {
+    const isLocal = /localhost|127\.0\.0\.1/.test(window.location.hostname);
+    const hasDemo = new URLSearchParams(window.location.search).has('demo');
+    if (hasDemo) {
+      try { sessionStorage.setItem('refnet_demo', '1'); } catch { /* ignore */ }
+    }
+    let remembered = false;
+    try { remembered = sessionStorage.getItem('refnet_demo') === '1'; } catch { /* ignore */ }
+    return isLocal || hasDemo || remembered;
+  })();
 
   const lastFirstGameIdx = sortedSteps.reduce(
     (last, s, i) => (s.config?.first_game_required === true ? i : last),
