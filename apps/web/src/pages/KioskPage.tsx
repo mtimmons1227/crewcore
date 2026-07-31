@@ -5,7 +5,34 @@ import { supabase } from '../supabaseClient';
 
 const PASSCODE = 'dboa2026';
 
-type SessionCode = { code: string; expires_in: number };
+type SessionCode = {
+  code: string;
+  expires_in: number;
+  session_title: string | null;
+  session_location: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  step_name: string | null;
+};
+type SessionInfo = {
+  title: string | null;
+  location: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  step_name: string | null;
+};
+
+// "Aug 20, 7:00 – 9:00 PM" from ISO start/end.
+function formatWhen(startIso: string | null, endIso: string | null): string {
+  if (!startIso) return '';
+  const start = new Date(startIso);
+  const datePart = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const startTime = start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  if (!endIso) return `${datePart}, ${startTime}`;
+  const end = new Date(endIso);
+  const endTime = end.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return `${datePart}, ${startTime} – ${endTime}`;
+}
 type CloseResult = { status: string; left_early_flagged: number };
 
 export default function KioskPage() {
@@ -22,6 +49,7 @@ export default function KioskPage() {
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'in' | 'out'>('in');
   const [counts, setCounts] = useState<{ checked_in_total: number; checked_out: number } | null>(null);
+  const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
 
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -37,9 +65,18 @@ export default function KioskPage() {
       setError(rpcErr?.message ?? 'Failed to fetch session code.');
       return;
     }
-    const { code, expires_in } = data as SessionCode;
-    setCodeData({ code, expires_in });
-    setCountdown(expires_in);
+    const d = data as SessionCode;
+    setCodeData(d);
+    setCountdown(d.expires_in);
+    setSessionInfo({
+      title: d.session_title,
+      location: d.session_location,
+      starts_at: d.starts_at,
+      ends_at: d.ends_at,
+      step_name: d.step_name,
+    });
+
+    const code = d.code;
 
     const checkInUrl = `${window.location.origin}/checkin/${sessionId}?code=${code}&action=in`;
     try {
@@ -161,6 +198,22 @@ export default function KioskPage() {
       <p className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
         CrewCore · Attendance Kiosk
       </p>
+
+      {/* What session this kiosk is for */}
+      {sessionInfo?.title ? (
+        <div className="mb-5 max-w-md">
+          {sessionInfo.step_name ? (
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+              {sessionInfo.step_name}
+            </p>
+          ) : null}
+          <h1 className="mt-1 text-2xl font-bold text-white">{sessionInfo.title}</h1>
+          <p className="mt-1 text-sm text-slate-400">
+            {formatWhen(sessionInfo.starts_at, sessionInfo.ends_at)}
+            {sessionInfo.location ? ` · ${sessionInfo.location}` : ''}
+          </p>
+        </div>
+      ) : null}
 
       {/* Presenter-controlled mode */}
       <div
