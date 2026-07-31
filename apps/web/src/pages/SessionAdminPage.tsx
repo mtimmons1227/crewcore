@@ -13,6 +13,33 @@ type SessionRow = {
   attendee_count: number;
 };
 
+type RosterRow = {
+  person_id: string;
+  full_name: string | null;
+  check_in_at: string | null;
+  check_out_at: string | null;
+  status: string;
+  min_pct: number;
+  present_pct: number | null;
+  overridden_by: string | null;
+  override_reason: string | null;
+  overridden_at: string | null;
+};
+
+const ATT_STATUS_META: Record<string, { label: string; cls: string }> = {
+  attended: { label: 'Attended', cls: 'bg-emerald-50 text-emerald-700' },
+  partial: { label: 'Partial', cls: 'bg-amber-50 text-amber-700' },
+  needs_review: { label: 'Needs review', cls: 'bg-rose-50 text-rose-700' },
+  checked_in: { label: 'Checked in', cls: 'bg-sky-50 text-sky-700' },
+};
+function attMeta(st: string) {
+  return ATT_STATUS_META[st] ?? { label: st, cls: 'bg-slate-100 text-slate-600' };
+}
+function fmtClock(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
 const inputCls =
   'w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400';
 
@@ -138,6 +165,19 @@ export default function SessionAdminPage() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [lastDeleteNote, setLastDeleteNote] = useState<string | null>(null);
 
+  // Attendance review
+  const [rosterOpenId, setRosterOpenId] = useState<string | null>(null);
+  const [roster, setRoster] = useState<RosterRow[] | null>(null);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [adminName, setAdminName] = useState<string>(() => {
+    try { return localStorage.getItem('refnet_admin_name') ?? ''; } catch { return ''; }
+  });
+  const [editPersonId, setEditPersonId] = useState<string | null>(null);
+  const [newStatus, setNewStatus] = useState('attended');
+  const [statusReason, setStatusReason] = useState('');
+  const [statusBusy, setStatusBusy] = useState(false);
+  const [statusErr, setStatusErr] = useState<string | null>(null);
+
   useEffect(() => {
     if (!authed) return;
     supabase
@@ -213,6 +253,57 @@ export default function SessionAdminPage() {
     setLocation('');
     setSaving(false);
     loadSessions(selectedStepId);
+  };
+
+  // ── Attendance review ──────────────────────────────────────────────────────────
+  const fetchRoster = async (id: string) => {
+    setRosterLoading(true);
+    const { data } = await (supabase as any).rpc('admin_session_roster', {
+      p_passcode: PASSCODE,
+      p_session_id: id,
+    });
+    setRoster((data ?? []) as RosterRow[]);
+    setRosterLoading(false);
+  };
+
+  const toggleRoster = (id: string) => {
+    setEditPersonId(null);
+    setStatusErr(null);
+    if (rosterOpenId === id) {
+      setRosterOpenId(null);
+      return;
+    }
+    setRosterOpenId(id);
+    setRoster(null);
+    fetchRoster(id);
+  };
+
+  const beginStatus = (r: RosterRow) => {
+    setEditPersonId(r.person_id);
+    setNewStatus(r.status === 'attended' ? 'partial' : 'attended');
+    setStatusReason('');
+    setStatusErr(null);
+  };
+
+  const applyStatus = async (sessionId: string, personId: string) => {
+    if (!adminName.trim()) { setStatusErr('Enter your name first.'); return; }
+    if (!statusReason.trim()) { setStatusErr('Enter a reason for the change.'); return; }
+    setStatusBusy(true);
+    setStatusErr(null);
+    try { localStorage.setItem('refnet_admin_name', adminName.trim()); } catch { /* ignore */ }
+    const { error } = await (supabase as any).rpc('admin_set_attendance_status', {
+      p_passcode: PASSCODE,
+      p_session_id: sessionId,
+      p_person_id: personId,
+      p_status: newStatus,
+      p_actor: adminName.trim(),
+      p_reason: statusReason.trim(),
+    });
+    setStatusBusy(false);
+    if (error) { setStatusErr(error.message ?? 'Failed to update status.'); return; }
+    setEditPersonId(null);
+    fetchRoster(sessionId);
+    if (selectedStepId) loadSessions(selectedStepId);
   };
 
   // ── Edit ──────────────────────────────────────────────────────────────────────
@@ -654,8 +745,8 @@ export default function SessionAdminPage() {
                         </div>
                       </div>
 
-                      {/* Kiosk link */}
-                      <div className="mt-2">
+                      {/* Kiosk + attendance review */}
+                      <div className="mt-2 flex flex-wrap gap-2">
                         <a
                           href={`/kiosk/${s.id}`}
                           target="_blank"
@@ -664,7 +755,124 @@ export default function SessionAdminPage() {
                         >
                           Open QR kiosk ↗
                         </a>
+                        <button
+                          type="button"
+                          onClick={() => toggleRoster(s.id)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                        >
+                          {rosterOpenId === s.id ? 'Hide attendance' : 'Review attendance'}
+                        </button>
                       </div>
+
+                      {rosterOpenId === s.id ? (
+                        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <label className="block text-xs font-semibold text-slate-600">
+                            Your name (recorded with any change)
+                            <input
+                              type="text"
+                              value={adminName}
+                              onChange={(e) => setAdminName(e.target.value)}
+                              placeholder="e.g. Coordinator name"
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-slate-400"
+                            />
+                          </label>
+
+                          {rosterLoading ? (
+                            <p className="mt-3 text-xs text-slate-500">Loading roster…</p>
+                          ) : !roster || roster.length === 0 ? (
+                            <p className="mt-3 text-xs text-slate-500">No one has checked in yet.</p>
+                          ) : (
+                            <ul className="mt-3 divide-y divide-slate-200">
+                              {roster.map((r) => (
+                                <li key={r.person_id} className="py-2.5">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-semibold text-slate-800">
+                                        {r.full_name ?? 'Unknown'}
+                                      </p>
+                                      <p className="mt-0.5 text-xs text-slate-500">
+                                        In {fmtClock(r.check_in_at)} · Out {fmtClock(r.check_out_at)}
+                                        {r.present_pct != null
+                                          ? ` · present ${r.present_pct}% (needs ${r.min_pct}%)`
+                                          : ''}
+                                      </p>
+                                      {r.overridden_by ? (
+                                        <p className="mt-0.5 text-[11px] text-slate-400">
+                                          Changed by {r.overridden_by}
+                                          {r.override_reason ? ` — ${r.override_reason}` : ''}
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                                      <span
+                                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${attMeta(r.status).cls}`}
+                                      >
+                                        {attMeta(r.status).label}
+                                      </span>
+                                      {editPersonId === r.person_id ? null : (
+                                        <button
+                                          type="button"
+                                          onClick={() => beginStatus(r)}
+                                          className="rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                                        >
+                                          Change
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {editPersonId === r.person_id ? (
+                                    <div className="mt-2 rounded-lg border border-slate-200 bg-white p-2.5">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <select
+                                          value={newStatus}
+                                          onChange={(e) => setNewStatus(e.target.value)}
+                                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-slate-400"
+                                        >
+                                          <option value="attended">Attended (counts)</option>
+                                          <option value="partial">Partial (doesn't count)</option>
+                                          <option value="needs_review">Needs review</option>
+                                          <option value="checked_in">Checked in</option>
+                                        </select>
+                                        <input
+                                          type="text"
+                                          value={statusReason}
+                                          onChange={(e) => setStatusReason(e.target.value)}
+                                          placeholder="Reason (required)"
+                                          className="min-w-[8rem] flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-slate-400"
+                                        />
+                                      </div>
+                                      {statusErr ? (
+                                        <p className="mt-1.5 text-[11px] text-rose-600">{statusErr}</p>
+                                      ) : null}
+                                      <div className="mt-2 flex gap-2">
+                                        <button
+                                          type="button"
+                                          disabled={statusBusy}
+                                          onClick={() => applyStatus(s.id, r.person_id)}
+                                          className="rounded-lg bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
+                                        >
+                                          {statusBusy ? 'Saving…' : 'Save change'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditPersonId(null);
+                                            setStatusErr(null);
+                                          }}
+                                          className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </li>
