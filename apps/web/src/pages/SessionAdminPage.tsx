@@ -116,6 +116,7 @@ export default function SessionAdminPage() {
   const [date, setDate] = useState(todayStr());
   const [startTime, setStartTime] = useState('18:00');
   const [durationMins, setDurationMins] = useState(120);
+  const [minPct, setMinPct] = useState(75);
   const [location, setLocation] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -192,6 +193,7 @@ export default function SessionAdminPage() {
       p_starts_at: startsIso,
       p_ends_at: endsIso,
       p_location: location || null,
+      p_min_pct: minPct,
       p_passcode: PASSCODE,
     });
 
@@ -207,6 +209,7 @@ export default function SessionAdminPage() {
     setDate(todayStr());
     setStartTime('18:00');
     setDurationMins(120);
+    setMinPct(75);
     setLocation('');
     setSaving(false);
     loadSessions(selectedStepId);
@@ -448,6 +451,25 @@ export default function SessionAdminPage() {
                 placeholder="e.g. Richland Hills Rec Center"
                 className={`mt-1.5 ${inputCls}`}
               />
+            </label>
+
+            <label className="block text-sm font-semibold text-slate-700">
+              Minimum presence to count
+              <select
+                value={minPct}
+                onChange={(e) => setMinPct(Number(e.target.value))}
+                className={`mt-1.5 ${selectCls}`}
+              >
+                <option value={0}>No minimum — any check-out counts</option>
+                <option value={50}>50% of the meeting</option>
+                <option value={75}>75% of the meeting</option>
+                <option value={90}>90% of the meeting</option>
+                <option value={100}>100% — full meeting</option>
+              </select>
+              <span className="mt-1 block text-xs font-normal text-slate-500">
+                An official must be checked in for at least this share of the scheduled length
+                (check-in to check-out) to be marked present; shorter visits are flagged for review.
+              </span>
             </label>
 
             {saveError ? (

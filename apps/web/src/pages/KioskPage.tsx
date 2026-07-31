@@ -33,7 +33,7 @@ function formatWhen(startIso: string | null, endIso: string | null): string {
   const endTime = end.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   return `${datePart}, ${startTime} – ${endTime}`;
 }
-type CloseResult = { status: string; left_early_flagged: number };
+type CloseResult = { status: string; needs_review: number };
 
 export default function KioskPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -185,9 +185,9 @@ export default function KioskPage() {
         <p className="text-5xl">🏁</p>
         <h2 className="mt-4 text-2xl font-bold text-white">Session closed</h2>
         <p className="mt-2 text-slate-400">
-          {closedResult.left_early_flagged > 0
-            ? `${closedResult.left_early_flagged} official${closedResult.left_early_flagged !== 1 ? 's' : ''} flagged as left early.`
-            : 'All checked-in officials were accounted for.'}
+          {closedResult.needs_review > 0
+            ? `${closedResult.needs_review} official${closedResult.needs_review !== 1 ? 's' : ''} never checked out — flagged for staff review.`
+            : 'All checked-in officials checked out.'}
         </p>
       </div>
     );
