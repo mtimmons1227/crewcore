@@ -241,14 +241,20 @@ export default function KioskPage() {
             <span className="font-semibold tabular-nums text-slate-200">{countdown}s</span>
           </p>
           {counts ? (
-            <p className="mt-3 text-sm font-semibold text-white">
+            <div
+              className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-white"
+            >
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ backgroundColor: mode === 'in' ? '#34d399' : '#60a5fa' }}
+              />
               {mode === 'in'
                 ? `${counts.checked_in_total} checked in`
                 : `${counts.checked_out} of ${counts.checked_in_total} checked out · ${Math.max(
                     0,
                     counts.checked_in_total - counts.checked_out,
                   )} still checked in`}
-            </p>
+            </div>
           ) : null}
         </>
       ) : (
