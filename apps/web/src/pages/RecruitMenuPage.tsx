@@ -1484,7 +1484,28 @@ export default function RecruitMenuPage() {
                   </div>
                   <div className="flex flex-1 items-center pb-5">
                     <div className="w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-                      <p className="text-sm font-semibold text-amber-700">First paid game unlocks here.</p>
+                      {stepsToFirstGame === 0 ? (
+                        <>
+                          <p className="text-sm font-semibold text-amber-800">
+                            You’re game-ready — first paid game unlocked. 🏁
+                          </p>
+                          <p className="mt-0.5 text-xs leading-snug text-amber-700">
+                            Every step above this line is complete, so you can now be
+                            assigned your first paid game.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm font-semibold text-amber-800">
+                            First paid game unlocks here.
+                          </p>
+                          <p className="mt-0.5 text-xs leading-snug text-amber-700">
+                            Every step above this line has to be completed first —{' '}
+                            {stepsToFirstGame} {stepsToFirstGame === 1 ? 'step' : 'steps'} to
+                            go before you’re game-ready and can be assigned your first paid game.
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
