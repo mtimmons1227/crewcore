@@ -7,6 +7,7 @@ import BoardDashboardPage from './pages/BoardDashboardPage';
 import CheckInPage from './pages/CheckInPage';
 import KioskPage from './pages/KioskPage';
 import SessionAdminPage from './pages/SessionAdminPage';
+import SessionAttendancePage from './pages/SessionAttendancePage';
 import BoardVerifyPage from './pages/BoardVerifyPage';
 import MakeTheCallPage from './pages/MakeTheCallPage';
 import { startDomainEventConsumer, stopDomainEventConsumer } from './lib/domainEvents';
@@ -54,6 +55,7 @@ function App() {
     location.pathname.startsWith('/checkin/') ||
     location.pathname.startsWith('/kiosk/') ||
     location.pathname === '/sessions/admin' ||
+    /^\/sessions\/[^/]+\/attendance$/.test(location.pathname) ||
     location.pathname === '/board/verify' ||
     location.pathname.endsWith('/make-the-call');
 
@@ -86,6 +88,7 @@ function App() {
             <Route path="/checkin/:sessionId" element={<CheckInPage />} />
             <Route path="/kiosk/:sessionId" element={<KioskPage />} />
             <Route path="/sessions/admin" element={<SessionAdminPage />} />
+            <Route path="/sessions/:sessionId/attendance" element={<SessionAttendancePage />} />
           </Routes>
         </div>
       </div>
