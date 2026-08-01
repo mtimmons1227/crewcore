@@ -25,6 +25,7 @@ export default function CheckInPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoNote, setAutoNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (!officialToken || !sessionId) {
@@ -60,7 +61,17 @@ export default function CheckInPage() {
       return;
     }
 
-    const scan = data as { status: string; check_in_at: string | null; check_out_at: string | null };
+    const scan = data as {
+      status: string;
+      check_in_at: string | null;
+      check_out_at: string | null;
+      auto_checked_out?: { session_title: string | null } | null;
+    };
+    if (scan.auto_checked_out?.session_title) {
+      setAutoNote(`You were checked out of ${scan.auto_checked_out.session_title} and checked in here.`);
+    } else {
+      setAutoNote(null);
+    }
     setStatusData((prev) =>
       prev
         ? {
@@ -91,6 +102,12 @@ export default function CheckInPage() {
       </div>
     );
   }
+
+  const autoBanner = autoNote ? (
+    <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center">
+      <p className="text-sm font-semibold text-emerald-700">{autoNote}</p>
+    </div>
+  ) : null;
 
   const errorBanner = error ? (
     <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-center">
@@ -145,6 +162,7 @@ export default function CheckInPage() {
   if (status === 'pending') {
     return wrap(
       <>
+        {autoBanner}
         {errorBanner}
         <button
           type="button"
@@ -168,6 +186,7 @@ export default function CheckInPage() {
             Checked in at {fmtTime(statusData?.check_in_at ?? null)}
           </p>
         </div>
+        {autoBanner}
         {errorBanner}
         <button
           type="button"

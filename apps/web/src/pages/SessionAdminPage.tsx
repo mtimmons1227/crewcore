@@ -120,6 +120,7 @@ export default function SessionAdminPage() {
   const [startTime, setStartTime] = useState('18:00');
   const [durationMins, setDurationMins] = useState(120);
   const [minPct, setMinPct] = useState(75);
+  const [releaseTime, setReleaseTime] = useState('');
   const [location, setLocation] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -198,6 +199,7 @@ export default function SessionAdminPage() {
       p_ends_at: endsIso,
       p_location: location || null,
       p_min_pct: minPct,
+      p_new_release_at: releaseTime ? buildIso(date, releaseTime) : null,
       p_passcode: PASSCODE,
     });
 
@@ -214,6 +216,7 @@ export default function SessionAdminPage() {
     setStartTime('18:00');
     setDurationMins(120);
     setMinPct(75);
+    setReleaseTime('');
     setLocation('');
     setSaving(false);
     loadSessions(selectedStepId);
@@ -473,6 +476,27 @@ export default function SessionAdminPage() {
               <span className="mt-1 block text-xs font-normal text-slate-500">
                 An official must be checked in for at least this share of the scheduled length
                 (check-in to check-out) to be marked present; shorter visits are flagged for review.
+              </span>
+            </label>
+
+            <label className="block text-sm font-semibold text-slate-700">
+              New officials released at (optional)
+              <select
+                value={releaseTime}
+                onChange={(e) => setReleaseTime(e.target.value)}
+                className={`mt-1.5 ${selectCls}`}
+              >
+                <option value="">No break-out — everyone stays the full meeting</option>
+                {TIME_OPTIONS.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1 block text-xs font-normal text-slate-500">
+                If a group breaks out early (e.g. new officials leave for training), set the release
+                time. Anyone who scans into their next session before then is credited against this
+                shorter window instead of the full meeting.
               </span>
             </label>
 
