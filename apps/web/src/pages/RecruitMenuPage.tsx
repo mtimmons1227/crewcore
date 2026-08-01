@@ -107,6 +107,10 @@ const WELCOME_VIDEOS: Record<string, string> = {
   transfer: 'https://share.synthesia.io/embeds/videos/97f3ccab-8a1e-4509-a662-6f5c4d0bacf7',
 };
 const DEFAULT_WELCOME_VIDEO = WELCOME_VIDEOS.new;
+
+// CrewCore explainer video (avatar-less voiceover) — shown at the top for everyone,
+// before and after chapter confirmation. Swap this URL to change the explainer.
+const EXPLAINER_VIDEO = 'https://share.synthesia.io/embeds/videos/698933e8-eba5-4ed6-864b-f6322562cf95';
 function welcomeVideoFor(memberType: string | null | undefined): string {
   return WELCOME_VIDEOS[memberType ?? 'new'] ?? DEFAULT_WELCOME_VIDEO;
 }
@@ -602,6 +606,7 @@ export default function RecruitMenuPage() {
   const [stepSessionsLoading, setStepSessionsLoading] = useState<Record<string, boolean>>({});
   const [demoLoading, setDemoLoading] = useState(false);
   const [videoCollapsed, setVideoCollapsed] = useState(false);
+  const [presidentCollapsed, setPresidentCollapsed] = useState(false);
   const [confirmSim, setConfirmSim] = useState(false);
   const [confirmStep, setConfirmStep] = useState<string | null>(null);
   const [welcomeVideoSrc, setWelcomeVideoSrc] = useState(DEFAULT_WELCOME_VIDEO);
@@ -1083,10 +1088,10 @@ export default function RecruitMenuPage() {
         <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <div className="min-w-0">
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-              Welcome — a message for you
+              Welcome to CrewCore
             </div>
             <div className="text-sm font-semibold text-slate-900">
-              A welcome from DBOA President Harold C. Young, II
+              How this works — what to expect
               {cycle.welcome_video_watched_at ? (
                 <span className="ml-1 font-normal text-slate-400">
                   · watched {new Date(cycle.welcome_video_watched_at).toLocaleDateString()}
@@ -1107,10 +1112,10 @@ export default function RecruitMenuPage() {
           <div className="flex items-start justify-between gap-3 px-4 pt-4">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Welcome — a message for you
+                Welcome to CrewCore
               </div>
               <div className="mt-0.5 text-base font-semibold text-slate-900">
-                A welcome from DBOA President Harold C. Young, II
+                How this works — what to expect
               </div>
             </div>
             <button
@@ -1128,8 +1133,8 @@ export default function RecruitMenuPage() {
               style={{ aspectRatio: '16 / 9' }}
             >
               <iframe
-                src={welcomeVideoSrc}
-                title="Welcome to DBOA"
+                src={EXPLAINER_VIDEO}
+                title="How CrewCore works"
                 allow="autoplay; fullscreen; encrypted-media"
                 allowFullScreen
                 loading="lazy"
@@ -1250,6 +1255,65 @@ export default function RecruitMenuPage() {
           </Link>
         </Card>
       )}
+
+      {/* ── President welcome (after chapter-fit; only once a chapter is confirmed) ── */}
+      {placementConfirmed ? (
+        presidentCollapsed ? (
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Welcome to DBOA
+              </div>
+              <div className="text-sm font-semibold text-slate-900">
+                A message from President Harold C. Young, II
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPresidentCollapsed(false)}
+              className="shrink-0 rounded-xl bg-transparent px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900"
+            >
+              Watch again ▾
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-start justify-between gap-3 px-4 pt-4">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Welcome to DBOA
+                </div>
+                <div className="mt-0.5 text-base font-semibold text-slate-900">
+                  A message from President Harold C. Young, II
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPresidentCollapsed(true)}
+                aria-label="Collapse president welcome"
+                className="shrink-0 rounded-xl bg-transparent px-2 py-1 text-xs font-semibold text-slate-500 hover:text-slate-800"
+              >
+                Collapse ▴
+              </button>
+            </div>
+            <div className="px-4 pb-4 pt-3">
+              <div
+                className="relative overflow-hidden rounded-xl bg-slate-900"
+                style={{ aspectRatio: '16 / 9' }}
+              >
+                <iframe
+                  src={welcomeVideoSrc}
+                  title="A message from DBOA President Harold C. Young, II"
+                  allow="autoplay; fullscreen; encrypted-media"
+                  allowFullScreen
+                  loading="lazy"
+                  className="absolute inset-0 h-full w-full border-0"
+                />
+              </div>
+            </div>
+          </div>
+        )
+      ) : null}
 
       {/* ── Two-column dashboard (main journey + sticky summary) ── */}
       <div className="mt-4 lg:grid lg:grid-cols-3 lg:gap-6 lg:items-start">
