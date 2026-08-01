@@ -102,9 +102,9 @@ type StepSession = {
 // below — no other code change is needed. All three point at the New-official
 // render until the Returning and Transfer versions are recorded.
 const WELCOME_VIDEOS: Record<string, string> = {
-  new: 'https://share.synthesia.io/embeds/videos/97f3ccab-8a1e-4509-a662-6f5c4d0bacf7',
-  returning: 'https://share.synthesia.io/embeds/videos/97f3ccab-8a1e-4509-a662-6f5c4d0bacf7',
-  transfer: 'https://share.synthesia.io/embeds/videos/97f3ccab-8a1e-4509-a662-6f5c4d0bacf7',
+  new: 'https://share.synthesia.io/embeds/videos/e9fd06ee-acae-45de-b7ff-585bd13dfd5e',
+  returning: 'https://share.synthesia.io/embeds/videos/e9fd06ee-acae-45de-b7ff-585bd13dfd5e',
+  transfer: 'https://share.synthesia.io/embeds/videos/e9fd06ee-acae-45de-b7ff-585bd13dfd5e',
 };
 const DEFAULT_WELCOME_VIDEO = WELCOME_VIDEOS.new;
 
