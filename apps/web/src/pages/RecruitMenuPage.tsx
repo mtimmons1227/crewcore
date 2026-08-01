@@ -934,6 +934,16 @@ export default function RecruitMenuPage() {
       setDemoLoading(false);
     }
   }
+  async function handleSimPaid() {
+    if (!token) return;
+    await (supabase as any).rpc('sim_mark_paid', { p_token: token });
+    window.location.reload();
+  }
+  async function handleSimStep(stepId: string) {
+    if (!token) return;
+    await (supabase as any).rpc('sim_complete_step', { p_token: token, p_step_id: stepId });
+    window.location.reload();
+  }
   const completedCount = sortedSteps.filter((s) => s.status === 'complete').length;
   const progressPct = sortedSteps.length > 0 ? Math.round((completedCount / sortedSteps.length) * 100) : 0;
   const isStalled = sortedSteps.some(
@@ -1009,7 +1019,8 @@ export default function RecruitMenuPage() {
     }
     let remembered = false;
     try { remembered = sessionStorage.getItem('refnet_demo') === '1'; } catch { /* ignore */ }
-    return isLocal || hasDemo || remembered;
+    const simEnv = import.meta.env.VITE_SIMULATION_MODE === 'true';
+    return simEnv || isLocal || hasDemo || remembered;
   })();
 
   const lastFirstGameIdx = sortedSteps.reduce(
@@ -1209,6 +1220,41 @@ export default function RecruitMenuPage() {
               Simulate State Completion
             </button>
           )}
+        </div>
+      ) : null}
+
+      {/* ── Test tools: simulate payment & attendance (test mode only) ── */}
+      {testMode ? (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
+              Test only
+            </span>
+            <p className="text-sm text-amber-800">Simulate steps to keep the flow moving (no real records change).</p>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {sortedSteps.some((s) => s.step_type === 'payment' && s.status !== 'complete') ? (
+              <button
+                type="button"
+                onClick={handleSimPaid}
+                className="rounded-xl bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-800"
+              >
+                Simulate dues paid
+              </button>
+            ) : null}
+            {sortedSteps
+              .filter((s) => s.step_type === 'attendance' && s.status !== 'complete')
+              .map((s) => (
+                <button
+                  key={s.step_id}
+                  type="button"
+                  onClick={() => handleSimStep(s.step_id)}
+                  className="rounded-xl bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-800"
+                >
+                  Complete (sim): {s.name}
+                </button>
+              ))}
+          </div>
         </div>
       ) : null}
 
