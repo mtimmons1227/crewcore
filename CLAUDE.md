@@ -184,3 +184,29 @@ Website/           — 4 standalone SVG marketing assets (not used by the app)
 - Write design outputs into markdown files under /docs
 - Treat previous approved docs as source of truth
 - Claims integrity: say "designed to use AI for…" not "uses AI" until a feature is shipped
+---
+
+## 2026-08-03 — SESSION UPDATE (resume from here)
+
+*Full narrative + all deliverables live in OneDrive `AI Project\RefNet` (esp. `RefNet_Officiating_Ecosystem_Context.md`). This section is the latest state; read it first when resuming.*
+
+**Repo is now synced with the live database.** Commit `63fdc15` on `main` added every migration that previously existed only in the live DB — `refnet_015`→`027` plus the attendance engine and the simulation helpers (`supabase/migrations/`). Repo now matches the deployed app + DB schema. Caveat: the OLDEST migration filenames diverge from the DB's early history — a one-time `supabase db pull` re-baseline is the someday cleanup (not blocking).
+
+**Modules (RefNet = umbrella platform):**
+- **CrewCore Pathway** — the next-generation REPLACEMENT for the CrewCore recruit/onboarding module; will supersede it as the front door. In development. (Live recruit page already brands as "CrewCore Pathway".)
+- **CRISP** — browser mechanics-practice tool; grades hand signals via phone/laptop camera (Google MediaPipe, on-device, 7 signals). Integrates with CrewCore via TWO RPCs on a "Signal Practice" step; sends NUMBERS ONLY (reps/seconds/scores), never video. Deployed separately. Engine works; thresholds calibrating.
+- **StripeUp** — assigner/staffing operations platform (publish games/time blocks, officials self-schedule via invite link, confirmations, payouts, reporting). In development.
+- **HoopMind** — rules/knowledge intelligence engine (~85% built).
+- **Basketball Jeopardy** — gamified rules-knowledge trainer (concept).
+
+**Concepts designed (recorded, not built):** AI communication "4th co-official" ecosystem (passive communication profile, AI advisor for game situations, content library, CONSENTED trait feed to assigner; framing "designed to use AI to coach", never "judges"); Collective pregame "Crew Brief" (Venue Card, gets smarter each game; GUARDRAIL: environmental/game-management context only, never player/coach reputational labels); Officials Passport + year-over-year achievement; gamified training; physical readiness/injury-prevention/recovery/longevity program (Anna-led).
+
+**Staging test environment:** `https://staging--refnet-dboa.netlify.app` (branch `staging`), `VITE_SIMULATION_MODE=true` shows simulator panels. Sim RPCs: `sim_mark_paid`, `sim_complete_step`, `demo_load_thsboa` (token-callable — GO-LIVE must remove/gate; staging shares prod DB). Tester manual: `CrewCore_Pathway_Staging_Test_Manual.docx` (OneDrive). Routes: `/`, `/r/:token`, `/r/:token/make-the-call`, `/command`, `/board`, `/board/verify`, `/sessions/admin`, `/kiosk/:id`, `/checkin/:id`, `/sessions/:id/attendance`.
+
+**People & legal — Dr. Anna Loveless:** licensed physical therapist AND active basketball official; Product/Testing Lead + intended Readiness/Wellness Lead. EXPLORATORY collaboration — NOTHING SIGNED yet. Draft agreements (OneDrive, plain-language, attorney-review): Mutual NDA; Exploratory Collaboration & Mutual Confidentiality Agreement + Exhibit A Project Addendum; Thursday discussion guide (+ private prep notes).
+
+**Founder record:** `Founder_Concept_Memorandum.docx` (v3, OneDrive) — records prior conception of CrewCore + all modules + readiness concept + future-enhancement design. Dated day-written (NOT backdated); timeline via Appendix A evidence.
+
+**Marketing (OneDrive):** `CrewCore_Pathway_DBOA_Brochure.pdf` (6pp, real screenshots); `CrewCore_Pathway_DBOA_OnePager` (.png/.pdf/.html — co-branded, real DBOA logo, real screenshots, real Fox 40 + basketball; also a desktop artifact). Rule: honest messaging only — no invented stats/testimonials until DBOA supplies real numbers.
+
+**Go-live must-fix (pre-launch, unchanged):** remove/gate sim + demo RPCs; replace `dboa2026` with real staff auth; stand up a SEPARATE production database; rotate Resend + Stripe keys and flip Stripe test→live; add DMARC for `rparryfinancial.com`; nonprofit→for-profit related-party review (attorney + CPA).
