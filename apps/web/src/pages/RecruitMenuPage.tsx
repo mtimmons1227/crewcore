@@ -600,7 +600,13 @@ export default function RecruitMenuPage() {
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [feesOpen, setFeesOpen] = useState(false);
-  const [showModal, setShowModal] = useState(Boolean(locState?.justSubmitted));
+  const [showModal, setShowModal] = useState<boolean>(() => {
+    if (!locState?.justSubmitted) return false;
+    try {
+      if (token && localStorage.getItem(`refnet_savelink_seen_${token}`) === '1') return false;
+    } catch { /* ignore */ }
+    return true;
+  });
   const [expandedAttendance, setExpandedAttendance] = useState<Record<string, boolean>>({});
   const [stepSessions, setStepSessions] = useState<Record<string, StepSession[]>>({});
   const [stepSessionsLoading, setStepSessionsLoading] = useState<Record<string, boolean>>({});
@@ -1060,7 +1066,14 @@ export default function RecruitMenuPage() {
   return (
     <div>
       {/* ── Save-link modal (every visit) ── */}
-      {showModal ? <SaveLinkModal onClose={() => setShowModal(false)} /> : null}
+      {showModal ? (
+        <SaveLinkModal
+          onClose={() => {
+            setShowModal(false);
+            try { if (token) localStorage.setItem(`refnet_savelink_seen_${token}`, '1'); } catch { /* ignore */ }
+          }}
+        />
+      ) : null}
 
       {/* ── Header ── */}
       <header className="rounded-panel bg-slate-900 px-5 py-4 text-white shadow-soft sm:px-6">
