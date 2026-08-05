@@ -1,6 +1,8 @@
+> **Current source of truth:** [`CrewCore_SDLC_Documentation_Current.md`](CrewCore_SDLC_Documentation_Current.md) reflects the latest build — the attendance engine, the pluggable-adapter integration model, and the CrewCore Pathway front end. The numbered `01`–`08` files below are the detailed phase narratives; where they differ from the current compilation, the compilation wins. (Note: this index predates the CrewCore Pathway rename and still references the empty `services/api` / `packages/shared` placeholders.)
+
 # CrewCore — Software Development Lifecycle (SDLC)
 
-_How this product is being built, phase by phase, using the standard 8-phase SDLC. Current focus: the **CrewCore Recruit** module._
+_How this product is being built, phase by phase, using the standard 8-phase SDLC. Current focus: the **CrewCore Pathway** recruit/onboarding experience (the next-generation CrewCore Recruit)._
 
 CrewCore is the operating system for sports officials — a chapter-controlled, federated officiating ecosystem (Recruit, Exchange, Academy, Payouts, Insights) that preserves chapter sovereignty. The first module in build is **CrewCore Recruit**: a chapter-branded public lead-capture funnel, a structured onboarding workflow, and a recruiter Command Center. Initial market: Dallas-area high school basketball chapters (DBOA, NTBOA, FWBOA).
 
@@ -36,7 +38,7 @@ CrewCore is the operating system for sports officials — a chapter-controlled, 
 | 3 | Dues / Stripe | 🔜 Next | Stripe dues integration; makes the 10% success fee automatically attributable and collectible |
 | 4 | AI Features | 🗺️ Planned | Lead scoring, drop-off prediction, shortage-zone targeting, campaign drafting, readiness summaries |
 | 5 | Workflow Builder + Lifecycle | 🗺️ Planned | Chapter-admin config UI; NTBOA + FWBOA onboarding via configuration; renewal and lapsed-official lifecycle |
-| 6 | Assigner Hand-off | 🗺️ Planned | Cleared-official hand-off signal to ArbiterSports; "Ready" state triggers assigner notification |
+| 6 | Assigner Hand-off | 🗺️ Planned | Cleared-official hand-off signal to ArbiterSports / RefTown; "Ready" state triggers assigner notification |
 | 7 | Renewals | 🗺️ Planned | Annual season rollover, returning-official re-registration, renewal reminders |
 | 8 | Mentor / Referral | 🗺️ Planned | Peer mentorship pairing, referral attribution, mentor credit tracking |
 
@@ -52,7 +54,7 @@ CrewCore is the operating system for sports officials — a chapter-controlled, 
 | Public surfaces | `/` lead capture, `/r/:token` recruit status page |
 | Staff surface | `/command` recruiter + chapter-admin Command Center |
 | Schema delivery | Ordered SQL migration files (`supabase/migrations/`) |
-| Repo layout | `apps/web`, `services/api`, `packages/shared`, `supabase/migrations`, `docs/` |
+| Repo layout | `apps/web`, `supabase/migrations`, `docs/` (note: `services/api` and `packages/shared` are empty placeholders) |
 
 ---
 
