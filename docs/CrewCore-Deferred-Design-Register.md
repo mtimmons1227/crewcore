@@ -77,3 +77,72 @@ for…", never "uses AI", until shipped.
 - Reason: current demo build hardcodes one Synthesia embed per path (`WELCOME_VIDEOS` map in `RecruitMenuPage.tsx`, keyed by `member_type` new/returning/transfer) because Synthesia's free plan has no API. The dynamic path was already built (`welcome-video` edge function + `welcome_video` cache table, one render per chapter/sport/season/path) but is dormant since it requires a paid Synthesia Creator/Enterprise plan.
 - Status: **Deferred until before go-live.** Demo uses hardcoded per-path videos; all three currently point at the New-official render until Returning/Transfer versions are recorded.
 - Implication: to go dynamic, (1) move to a paid Synthesia plan, (2) set `SYNTHESIA_API_KEY` + `SYNTHESIA_TEMPLATE_NEW/_RETURNING/_TRANSFER` as Supabase edge-function secrets, (3) re-wire `RecruitMenuPage` to invoke `welcome-video` again (the fallback already keeps a static video if the API is unconfigured). Weigh the per-render cost and personalization value (name + season) against just keeping the hardcoded per-path videos.
+
+---
+
+## Future functionality — post-game ecosystem (logged 2026-08-05)
+
+Six features that extend CrewCore from onboarding into the **in-season officiating loop**. They form a
+data flywheel: officials log after each game → that data powers smarter pregames → which improves the
+next game. All are **DESIGNED, not built** (say "designed to use AI for…", never "uses AI"). Each rides
+the existing data layer and the pluggable-adapter integration model.
+
+### 7. Post Game logging
+- **What:** quick, low-friction post-game capture for all **three officials** on a crew — final
+  score/result, notable game-management situations, environmental notes (venue, crowd, facility issues),
+  and any incidents. Fast entry (mobile, seconds, not a form marathon).
+- **Why it's foundational:** this is the **source data** for items 8, 10, and 11 below. Nothing
+  downstream works without it, so build it first.
+- **Data model:** a new `game` + `game_log` (per-official entry) structure hanging off `person` /
+  `membership` / `chapter`, with the same source/evidence/audit discipline as `step_completion`.
+- **Guardrail:** capture **environmental and game-management context**, not player/coach reputational
+  labels (same guardrail as the Crew Brief concept).
+
+### 8. Pregame Analysis
+- **What:** an auto-assembled pregame brief for a crew, built from **accumulated post-game logs** for the
+  teams, venue, and matchup involved — e.g. "this gym has a tight baseline," "this matchup ran long last
+  time," "facility note: no game clock operator." Gets smarter every time a crew logs a game (item 7).
+- **Relationship:** this is the data-sourced evolution of the earlier collective "Crew Brief / Venue
+  Card" concept — now fed by real logged history instead of one-off notes.
+- **Guardrail (non-negotiable):** environmental / game-management context ONLY. Never player or coach
+  reputational scoring, never anything that could pre-bias an official's judgment.
+
+### 9. Mentor Assignment
+- **What:** the pairing/assignment step that sits on top of the **Mentor Signal** capture layer (recruit
+  "request a mentor" + veteran "volunteer to mentor" + board supply/demand view, already specified).
+  Match a mentee to a mentor, track the pairing, and support the relationship.
+- **Relationship:** this is Slice 8 (mentor pairing). The signal layer collects intent now; this assigns
+  and manages the pairing later.
+- **Data model:** a `mentorship` pairing (mentor membership × mentee membership, status, dates) plus
+  optional check-in/feedback records.
+
+### 10. Game reporting (to Assigner and/or UIL)
+- **What:** generate and send a game report to the **assigner** and/or **UIL** (the Texas
+  interscholastic governing body) — results, incidents, ejections/anomalies that must be reported up.
+- **Relationship:** an **outbound adapter** on the same seam pattern used for the RefTown hand-off —
+  post-game data → mapped to the recipient's required format → delivered. Keep a manual override/preview
+  so nothing auto-sends without a human check on anything sensitive.
+- **Note:** confirm each recipient's required reporting format and channel before building the adapter.
+
+### 11. Post Game Rules Interpretation — anomaly lookup
+- **What:** a lookup for **game anomalies** — an official hits an unusual situation and can search "what's
+  the correct ruling / mechanic here," drawing on rulebook + case book + prior logged anomalies.
+- **Relationship:** natural home for **HoopMind** (the rules/knowledge intelligence engine, ~85% built)
+  and a candidate for `pgvector`-backed semantic search over the rulebook/case book. Post-game logged
+  anomalies (item 7) become a growing, searchable corpus of real situations and their resolutions.
+- **Claims integrity:** designed to use AI to assist rules interpretation — always human-verified against
+  the official rulebook, never presented as an authoritative ruling on its own.
+
+### 12. Inter-Chapter transfer information
+- **What:** let an official **request information about, and initiate a transfer to/from, another
+  chapter** — see requirements, dues, and standing needed, and start the request.
+- **Relationship:** builds directly on the **shared multi-tenant identity** model (one person, many
+  memberships — ADR-001) and the planned dual-chapter additions (primary-chapter flag, state-standing).
+  A transfer is adding/adjusting a `membership`, not creating a new person.
+- **Guardrail:** respect chapter sovereignty — a transfer request is surfaced to the receiving chapter's
+  board to accept, never an automatic cross-chapter data grant.
+
+**The flywheel (why these belong together):** 7 (log) → 8 (pregame) and 11 (interpretation) consume the
+logs; 10 (reporting) routes the logs outward; 9 (mentoring) and 12 (transfers) extend the people layer.
+Build order suggestion: **7 first** (it feeds everything), then 8/11, then 10, with 9 and 12 alongside
+the mentor-signal and dual-chapter work already specified.
