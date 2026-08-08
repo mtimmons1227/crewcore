@@ -102,9 +102,9 @@ type StepSession = {
 // below — no other code change is needed. All three point at the New-official
 // render until the Returning and Transfer versions are recorded.
 const WELCOME_VIDEOS: Record<string, string> = {
-  new: 'https://share.synthesia.io/embeds/videos/e9fd06ee-acae-45de-b7ff-585bd13dfd5e',
-  returning: 'https://share.synthesia.io/embeds/videos/e9fd06ee-acae-45de-b7ff-585bd13dfd5e',
-  transfer: 'https://share.synthesia.io/embeds/videos/e9fd06ee-acae-45de-b7ff-585bd13dfd5e',
+  new: 'https://share.synthesia.io/embeds/videos/774f1106-29db-4612-8220-177108ac4730',
+  returning: 'https://share.synthesia.io/embeds/videos/774f1106-29db-4612-8220-177108ac4730',
+  transfer: 'https://share.synthesia.io/embeds/videos/774f1106-29db-4612-8220-177108ac4730',
 };
 const DEFAULT_WELCOME_VIDEO = WELCOME_VIDEOS.new;
 
@@ -1362,13 +1362,17 @@ export default function RecruitMenuPage() {
             </div>
             <div className="px-4 pb-4 pt-3">
               <div
-                className="relative flex flex-col items-center justify-center overflow-hidden rounded-xl bg-slate-900 text-center"
+                className="relative overflow-hidden rounded-xl bg-slate-900"
                 style={{ aspectRatio: '16 / 9' }}
               >
-                <div className="text-sm font-semibold text-white">
-                  A welcome message from President {presidentName}
-                </div>
-                <div className="mt-1 text-xs text-slate-400">Video coming soon</div>
+                <iframe
+                  src={welcomeVideoSrc}
+                  title={`A message from President ${presidentName}`}
+                  allow="autoplay; fullscreen; encrypted-media"
+                  allowFullScreen
+                  loading="lazy"
+                  className="absolute inset-0 h-full w-full border-0"
+                />
               </div>
             </div>
           </div>
