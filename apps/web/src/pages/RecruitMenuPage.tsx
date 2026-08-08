@@ -553,14 +553,15 @@ async function mergeAuthorityData(
   raw: RegistrationResponse,
 ): Promise<{ steps: RegistrationStep[]; chapterLogoUrl: string | null }> {
   const stepIds = raw.steps.map((s) => s.step_id);
-  const chapterSlug = raw.cycle.chapter.split(/\s[-–—]\s/)[0]?.trim() ?? 'DBOA';
 
   const [wsResult, chapterResult] = await Promise.all([
     supabase
       .from('workflow_step')
       .select('id, authority, prerequisite_step_id')
       .in('id', stepIds),
-    supabase.from('chapter').select('logo_url').eq('slug', chapterSlug).single(),
+    // Look up the chapter by the name get_registration returns (robust across
+    // chapters — no fragile slug-parsing of the display name).
+    supabase.from('chapter').select('logo_url').eq('name', raw.cycle.chapter).single(),
   ]);
 
   const wsMap: Record<string, { authority: 'state' | 'chapter'; prerequisite_step_id: string | null }> = {};

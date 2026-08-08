@@ -146,3 +146,22 @@ the existing data layer and the pluggable-adapter integration model.
 logs; 10 (reporting) routes the logs outward; 9 (mentoring) and 12 (transfers) extend the people layer.
 Build order suggestion: **7 first** (it feeds everything), then 8/11, then 10, with 9 and 12 alongside
 the mentor-signal and dual-chapter work already specified.
+
+### 13. Dual / multi-chapter membership + dues model
+- **What:** an official can belong to and actively work **more than one chapter at the same time** (some
+  do). Membership is not exclusive. The registration/branding context (name, logo, header, workflow) must
+  reflect **whichever chapter the official is currently acting in**, not a single hardcoded chapter.
+- **Dues rule (important):** **state dues are paid once** (they attach to the person's state standing for
+  the season, e.g. THSBOA), while **local chapter dues are paid separately to each chapter** the official
+  belongs to. Billing must never double-charge state dues across chapters, and must charge local dues per
+  membership.
+- **Data model:** one `person` → many `membership` (chapter-scoped) — already the ADR-001 shared identity
+  model. Additions needed: a **primary-chapter** flag on membership; **state standing tracked once** at the
+  person+season level (cleared/paid once, shared across all that person's chapter memberships that season);
+  **local dues tracked per membership**; and a per-membership registration_cycle so each chapter's workflow
+  and payments stay independent.
+- **Why it matters now:** today's per-chapter branding work (data-driven chapter name + logo, header that
+  loads the chapter the official is associated with) is the first visible piece of this. The billing and
+  primary-chapter pieces are deferred, but the identity model must not assume one-person-one-chapter.
+- **Guardrail:** when a person is in multiple chapters, never leak one chapter's private data into another
+  chapter's view — scope every query and screen to the active chapter/membership.
