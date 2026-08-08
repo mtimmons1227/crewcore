@@ -823,7 +823,7 @@ export default function RecruitMenuPage() {
           <div className="mt-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
             <p className="text-sm text-slate-700">
               {isUniform
-                ? 'Have you obtained the required DBOA uniform?'
+                ? `Have you obtained the required ${chapterShort} uniform?`
                 : `Mark "${step.name}" as done?`}
             </p>
             <div className="mt-3 flex gap-2">
@@ -959,12 +959,16 @@ export default function RecruitMenuPage() {
 
   const chapterParts = cycle.chapter.split(/\s[-–—]\s/);
   const fullChapterName = chapterParts.length > 1 ? chapterParts.slice(1).join(' — ') : cycle.chapter;
+  // Short, data-driven chapter label for inline badges/copy (e.g. "Lakeside").
+  const chapterShort = fullChapterName.split(' ')[0] || fullChapterName;
+  // President card name (demo — chapter branding not yet returned by get_registration).
+  const presidentName = 'Marvin Timmons';
 
   const pathHeadline =
     cycle.member_type === 'returning'
       ? "Welcome back — let's get you renewed for the season."
       : cycle.member_type === 'transfer'
-        ? 'Welcome to DBOA.'
+        ? `Welcome to ${chapterShort}.`
         : cycle.person.full_name
           ? `${cycle.person.full_name.split(' ')[0]}'s path to officiating`
           : 'Your path to officiating';
@@ -1094,7 +1098,7 @@ export default function RecruitMenuPage() {
               <div className="mt-0.5 text-sm text-slate-300">{pathSub}</div>
             ) : null}
             <div className="mt-1 text-sm text-slate-400">
-              {fullChapterName} · {cycle.season}
+              {placementConfirmed ? `${fullChapterName} · ${cycle.season}` : cycle.season}
             </div>
           </div>
         </div>
@@ -1321,10 +1325,10 @@ export default function RecruitMenuPage() {
           <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <div className="min-w-0">
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Welcome to DBOA
+                Welcome to {chapterShort}
               </div>
               <div className="text-sm font-semibold text-slate-900">
-                A message from President Harold C. Young, II
+                A message from President {presidentName}
               </div>
             </div>
             <button
@@ -1340,10 +1344,10 @@ export default function RecruitMenuPage() {
             <div className="flex items-start justify-between gap-3 px-4 pt-4">
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Welcome to DBOA
+                  Welcome to {chapterShort}
                 </div>
                 <div className="mt-0.5 text-base font-semibold text-slate-900">
-                  A message from President Harold C. Young, II
+                  A message from President {presidentName}
                 </div>
               </div>
               <button
@@ -1357,17 +1361,13 @@ export default function RecruitMenuPage() {
             </div>
             <div className="px-4 pb-4 pt-3">
               <div
-                className="relative overflow-hidden rounded-xl bg-slate-900"
+                className="relative flex flex-col items-center justify-center overflow-hidden rounded-xl bg-slate-900 text-center"
                 style={{ aspectRatio: '16 / 9' }}
               >
-                <iframe
-                  src={welcomeVideoSrc}
-                  title="A message from DBOA President Harold C. Young, II"
-                  allow="autoplay; fullscreen; encrypted-media"
-                  allowFullScreen
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full border-0"
-                />
+                <div className="text-sm font-semibold text-white">
+                  A welcome message from President {presidentName}
+                </div>
+                <div className="mt-1 text-xs text-slate-400">Video coming soon</div>
               </div>
             </div>
           </div>
@@ -1481,7 +1481,7 @@ export default function RecruitMenuPage() {
                     ? 'Paid here in RefNet · card'
                     : channel === 'arbiter'
                       ? 'Paid on ArbiterSports · confirmed automatically'
-                      : 'Paid to DBOA';
+                      : `Paid to ${chapterShort}`;
                 const pillStyle =
                   pill === 'paid'
                     ? { bg: '#dcfce7', color: '#16a34a', label: 'Paid' }
@@ -1543,7 +1543,7 @@ export default function RecruitMenuPage() {
                   <span className="font-semibold text-slate-700">How this works:</span>{' '}
                   Only the chapter dues are paid inside RefNet by card. State dues are paid on
                   ArbiterSports and confirmed here automatically once your state eligibility clears.
-                  The training camp fee is collected by DBOA. The remaining steps carry no fee.
+                  The training camp fee is collected by {chapterShort}. The remaining steps carry no fee.
                 </p>
               </div>
             </div>
@@ -1558,14 +1558,6 @@ export default function RecruitMenuPage() {
               Questions about registration, fees, or your checklist?
             </p>
             <div className="mt-3 flex flex-col gap-2">
-              <a
-                href="https://thedboa.com"
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Visit the DBOA Website
-              </a>
               {!placementConfirmed ? (
                 <Link
                   to={`/r/${token}/make-the-call`}
@@ -1680,7 +1672,7 @@ export default function RecruitMenuPage() {
                 : null;
             const isChapter = step.authority === 'chapter';
             const authCls = isChapter ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700';
-            const authLabel = isChapter ? 'DBOA' : 'THSBOA';
+            const authLabel = isChapter ? chapterShort : 'THSBOA';
 
             // Suppress unused idx warning (used for future milestone placement)
             void idx;

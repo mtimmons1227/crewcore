@@ -360,6 +360,9 @@ export default function LeadCapturePage() {
   };
 
   const chapterName = chapter?.name ?? 'DBOA';
+  // Short, data-driven chapter label for inline copy (e.g. "Lakeside").
+  const chapterShort = chapterName.split(' ')[0] || chapterName;
+  const withChapter = (s: string) => s.replace(/DBOA/g, chapterShort);
 
   const header = (
     <header className="rounded-panel bg-slate-900 px-5 py-4 text-white shadow-soft sm:px-6">
@@ -428,6 +431,7 @@ export default function LeadCapturePage() {
 
     const stageGroups = STAGES.map((stage) => ({
       ...stage,
+      title: withChapter(stage.title),
       items: personalizedSteps
         .filter((s) => stageForStep(s.name) === stage.key)
         .sort((a, b) => a.sort_order - b.sort_order),
@@ -503,7 +507,7 @@ export default function LeadCapturePage() {
                         className="mt-0.5 text-xs"
                         style={{ color: selected ? '#C2410C' : '#64748b' }}
                       >
-                        {opt.desc}
+                        {withChapter(opt.desc)}
                       </p>
                     </div>
                   </button>
@@ -552,7 +556,7 @@ export default function LeadCapturePage() {
           ) : (
             /* ── Personalized checklist (revealed after path selection) ── */
             <Card className="mt-4 p-6">
-              <h3 className="text-lg font-semibold text-slate-900">Your personalized DBOA basketball registration path</h3>
+              <h3 className="text-lg font-semibold text-slate-900">Your personalized {chapterShort} basketball registration path</h3>
 
               {/* Summary card */}
               <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
@@ -653,7 +657,7 @@ export default function LeadCapturePage() {
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-slate-300 sm:text-base">
             Get trained, join a supportive officiating community, and begin working
-            basketball games throughout the Dallas area.
+            basketball games in your area.
           </p>
           <p className="mt-2 text-sm font-medium text-slate-200 sm:text-base">
             No officiating experience is required. Training is provided.
@@ -809,7 +813,7 @@ export default function LeadCapturePage() {
                     >
                       {i + 1}
                     </span>
-                    <span className="pt-0.5">{label}</span>
+                    <span className="pt-0.5">{withChapter(label)}</span>
                   </li>
                 ))}
               </ol>
